@@ -90,6 +90,12 @@
           you post, along with the map locations they are placed at, are stored so your
           friends can see them for the short time before they are deleted.
         </li>
+        <li>
+          <strong>Notification token.</strong> If you enable push notifications, we store
+          a device push token so we can send you alerts (for example when a friend posts
+          or comments). You can turn notifications off at any time in your device's
+          Settings.
+        </li>
       </ul>
 
       <h2>How We Use Your Information</h2>
@@ -113,9 +119,32 @@
         Your location and personal data are <strong>not sold to third parties</strong> and
         are <strong>not used for advertising</strong>. Your profile and the content you
         post are visible only to people you have added as friends who have added you back.
-        We use trusted infrastructure providers (such as our hosting and database provider)
-        to store and process this data on our behalf.
+        We do not use any advertising or analytics tracking SDKs.
       </p>
+      <p>
+        We rely on a small number of trusted service providers who process data only to
+        make the app work, on our behalf:
+      </p>
+      <ul>
+        <li>
+          <strong>Supabase</strong> — hosting, database, authentication, and photo storage.
+          This is where your account and content are securely stored.
+        </li>
+        <li>
+          <strong>Expo</strong> — delivers app updates and, if you enable them, push
+          notifications (using the notification token described above).
+        </li>
+        <li>
+          <strong>Mapbox</strong> — when your photos are connected into a path, the photo
+          coordinates are sent to Mapbox to calculate the route between them and to look
+          up a place name for the location. Mapbox processes these coordinates only to
+          return that result.
+        </li>
+        <li>
+          <strong>Apple</strong> — provides Sign in with Apple and the map you see. Apple's
+          handling of that data is governed by Apple's own privacy policy.
+        </li>
+      </ul>
 
       <h2>Data Retention</h2>
       <p>
@@ -137,6 +166,14 @@
         </li>
         <li>You can request access to your data via the contact below.</li>
       </ul>
+
+      <h2>Automated Processing &amp; AI</h2>
+      <p>
+        maplog does not use your photos, location, or other personal data to train
+        artificial-intelligence or machine-learning models, and it does not profile you or
+        make automated decisions about you. The only automated processing is the routing
+        described above, which simply connects your photo locations into a path.
+      </p>
 
       <h2>Children</h2>
       <p>
