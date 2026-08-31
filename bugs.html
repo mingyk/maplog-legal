@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>maplog — Bug reports</title>
+    <style>
+      :root {
+        --bg: #fbf8f3;
+        --surface: #ffffff;
+        --text: #2b2b2b;
+        --muted: #8a8a8a;
+        --accent: #3c4453;
+        --border: #ece7de;
+        --danger: #c45c4a;
+      }
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+        line-height: 1.5;
+        font-size: 16px;
+      }
+      .wrap { max-width: 720px; margin: 0 auto; padding: 48px 24px 96px; }
+      h1 { font-size: 28px; letter-spacing: -0.02em; margin: 0 0 4px; }
+      .updated { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+      .pill {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 600;
+        color: #ffffff;
+        background: var(--accent);
+        border-radius: 999px;
+        padding: 4px 12px;
+        margin-bottom: 16px;
+      }
+      label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 6px; }
+      input {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 14px;
+        font-size: 16px;
+        margin-bottom: 14px;
+        background: var(--surface);
+        color: var(--text);
+      }
+      button {
+        font: inherit;
+        font-weight: 600;
+        border: 0;
+        cursor: pointer;
+      }
+      .primary {
+        background: var(--accent);
+        color: #fff;
+        border-radius: 999px;
+        padding: 12px 20px;
+      }
+      .primary:disabled { opacity: 0.5; cursor: default; }
+      .ghost {
+        background: transparent;
+        color: var(--muted);
+        padding: 8px 0;
+      }
+      .err { color: var(--danger); font-size: 14px; min-height: 20px; margin: 0 0 8px; }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px 22px;
+        margin-top: 16px;
+      }
+      .card h2 { font-size: 18px; margin: 0 0 6px; letter-spacing: -0.01em; }
+      .meta { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+      .block { margin: 0 0 12px; }
+      .block .k { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 2px; }
+      .block p { margin: 0; color: #4a4a4a; white-space: pre-wrap; }
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+      .resolve {
+        background: var(--danger);
+        color: #fff;
+        border-radius: 999px;
+        padding: 8px 16px;
+        font-size: 14px;
+      }
+      .resolve:disabled { opacity: 0.5; }
+      .empty { color: var(--muted); text-align: center; padding: 48px 12px; }
+      .top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <span class="pill">maplog · internal</span>
+      <h1>Bug reports</h1>
+      <div class="updated">Sign in to read and resolve in-app reports.</div>
+
+      <form id="login" class="card" autocomplete="username">
+        <label for="user">Username</label>
+        <input id="user" name="username" type="text" autocomplete="username" />
+        <label for="pass">Password</label>
+        <input id="pass" name="password" type="password" autocomplete="current-password" />
+        <p class="err" id="login-err"></p>
+        <button class="primary" type="submit" id="login-btn">Open inbox</button>
+      </form>
+
+      <div id="inbox" class="hidden">
+        <div class="top">
+          <div class="updated" id="count" style="margin: 0"></div>
+          <button class="ghost" type="button" id="out">Sign out</button>
+        </div>
+        <div id="list"></div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      const SUPABASE_URL = "https://dyuuupftsfpoggwlnhbt.supabase.co";
+      const SUPABASE_ANON =
+        "sb_publishable_jGSj71BIxZC9faCW_olVMg_6FASoUQV";
+      const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+      const KEY_U = "maplog.bugs.user";
+      const KEY_P = "maplog.bugs.pass";
+
+      const $ = (id) => document.getElementById(id);
+      const login = $("login");
+      const inbox = $("inbox");
+      const list = $("list");
+      const count = $("count");
+      const loginErr = $("login-err");
+
+      function creds() {
+        return {
+          user: sessionStorage.getItem(KEY_U) || "",
+          pass: sessionStorage.getItem(KEY_P) || "",
+        };
+      }
+
+      function setCreds(user, pass) {
+        sessionStorage.setItem(KEY_U, user);
+        sessionStorage.setItem(KEY_P, pass);
+      }
+
+      function clearCreds() {
+        sessionStorage.removeItem(KEY_U);
+        sessionStorage.removeItem(KEY_P);
+      }
+
+      function showLogin(msg) {
+        login.classList.remove("hidden");
+        inbox.classList.add("hidden");
+        loginErr.textContent = msg || "";
+      }
+
+      function showInbox() {
+        login.classList.add("hidden");
+        inbox.classList.remove("hidden");
+        loginErr.textContent = "";
+      }
+
+      function esc(s) {
+        return String(s ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
+      function when(iso) {
+        try {
+          return new Date(iso).toLocaleString(undefined, {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          });
+        } catch {
+          return iso;
+        }
+      }
+
+      async function load() {
+        const { user, pass } = creds();
+        if (!user || !pass) {
+          showLogin();
+          return;
+        }
+        const { data, error } = await sb.rpc("admin_list_bug_reports", {
+          p_user: user,
+          p_pass: pass,
+        });
+        if (error) {
+          clearCreds();
+          showLogin("Wrong username or password.");
+          return;
+        }
+        showInbox();
+        const rows = data || [];
+        count.textContent = rows.length === 1 ? "1 open report" : rows.length + " open reports";
+        if (!rows.length) {
+          list.innerHTML = '<p class="empty">Nothing in the inbox.</p>';
+          return;
+        }
+        list.innerHTML = rows
+          .map((r) => {
+            const who = r.handle ? "@" + r.handle : r.display_name || "someone";
+            const expected = r.expected
+              ? `<div class="block"><div class="k">Expected</div><p>${esc(r.expected)}</p></div>`
+              : "";
+            return `<article class="card" data-id="${esc(r.id)}">
+              <h2>${esc(r.title)}</h2>
+              <div class="meta">${esc(who)} · ${esc(when(r.created_at))}</div>
+              <div class="block"><div class="k">What happened</div><p>${esc(r.description)}</p></div>
+              <div class="block"><div class="k">How to reproduce</div><p>${esc(r.reproduce)}</p></div>
+              ${expected}
+              <div class="row">
+                <span></span>
+                <button class="resolve" type="button" data-resolve="${esc(r.id)}">Resolve</button>
+              </div>
+            </article>`;
+          })
+          .join("");
+      }
+
+      login.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = $("login-btn");
+        btn.disabled = true;
+        loginErr.textContent = "";
+        setCreds($("user").value.trim(), $("pass").value);
+        await load();
+        btn.disabled = false;
+      });
+
+      $("out").addEventListener("click", () => {
+        clearCreds();
+        $("user").value = "";
+        $("pass").value = "";
+        showLogin();
+      });
+
+      list.addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-resolve]");
+        if (!btn) return;
+        const id = btn.getAttribute("data-resolve");
+        if (!id) return;
+        if (!confirm("Resolve this report? It will be deleted.")) return;
+        btn.disabled = true;
+        const { user, pass } = creds();
+        const { error } = await sb.rpc("admin_resolve_bug_report", {
+          p_id: id,
+          p_user: user,
+          p_pass: pass,
+        });
+        if (error) {
+          btn.disabled = false;
+          alert("Couldn’t resolve. Try signing in again.");
+          return;
+        }
+        const card = btn.closest("[data-id]");
+        if (card) card.remove();
+        const left = list.querySelectorAll("[data-id]").length;
+        count.textContent = left === 1 ? "1 open report" : left + " open reports";
+        if (!left) list.innerHTML = '<p class="empty">Nothing in the inbox.</p>';
+      });
+
+      load();
+    </script>
+  </body>
+</html>
