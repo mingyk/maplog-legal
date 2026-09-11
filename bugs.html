@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>maplog — Bug reports</title>
+    <title>maplog — Inbox</title>
     <style>
       :root {
         --bg: #fbf8f3;
@@ -90,16 +90,86 @@
         font-size: 14px;
       }
       .resolve:disabled { opacity: 0.5; }
+      .give {
+        background: var(--accent);
+        color: #fff;
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-size: 13px;
+      }
+      .give:disabled { opacity: 0.5; }
       .empty { color: var(--muted); text-align: center; padding: 48px 12px; }
-      .top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+      .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
       .hidden { display: none; }
+      .tabs { display: flex; gap: 8px; }
+      .tab {
+        background: var(--surface);
+        color: var(--muted);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 8px 16px;
+        font-size: 14px;
+      }
+      .tab.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+      .skin-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 8px; }
+      .skin-card { cursor: pointer; transition: border-color 0.15s ease; }
+      .skin-card:hover { border-color: #c9a227; }
+      .skin-card .preview { margin: 12px 0 4px; }
+      .handle-day1 {
+        display: inline-flex;
+        padding: 2px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #7a5410, #f8e7a0, #c9a227, #fff3c4, #8c6914);
+      }
+      .handle-day1 span {
+        display: inline-block;
+        background: #fff6d6;
+        color: #6b4e10;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 999px;
+        letter-spacing: 0.02em;
+        font-size: 14px;
+      }
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(38, 34, 28, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        z-index: 20;
+      }
+      .overlay.hidden { display: none; }
+      .sheet {
+        background: var(--surface);
+        border-radius: 20px 20px 16px 16px;
+        padding: 24px;
+        width: min(560px, 100%);
+        max-height: 86vh;
+        overflow: auto;
+        margin-bottom: 8px;
+      }
+      .sheet h2 { font-size: 22px; margin: 0 0 4px; }
+      .hit {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .hit:last-child { border-bottom: 0; }
+      .who { font-weight: 600; }
+      .who span { font-weight: 400; color: var(--muted); }
     </style>
   </head>
   <body>
     <div class="wrap">
       <span class="pill">maplog · internal</span>
-      <h1>Bug reports</h1>
-      <div class="updated">Sign in to read and resolve in-app reports.</div>
+      <h1 id="page-title">Bug reports</h1>
+      <div class="updated" id="page-sub">Sign in to read reports and assign collectables.</div>
 
       <form id="login" class="card" autocomplete="username">
         <label for="user">Username</label>
@@ -110,12 +180,39 @@
         <button class="primary" type="submit" id="login-btn">Open inbox</button>
       </form>
 
-      <div id="inbox" class="hidden">
+      <div id="app" class="hidden">
         <div class="top">
-          <div class="updated" id="count" style="margin: 0"></div>
+          <div class="tabs">
+            <button class="tab on" type="button" data-tab="bugs">Reports</button>
+            <button class="tab" type="button" data-tab="skins">Collectables</button>
+          </div>
           <button class="ghost" type="button" id="out">Sign out</button>
         </div>
-        <div id="list"></div>
+        <div id="bugs-pane">
+          <div class="updated" id="count" style="margin: 16px 0 0"></div>
+          <div id="list"></div>
+        </div>
+        <div id="skins-pane" class="hidden">
+          <div class="updated" id="skins-count" style="margin: 16px 0 0"></div>
+          <div id="skins" class="skin-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="assign" class="overlay hidden">
+      <div class="sheet">
+        <div class="row" style="margin: 0 0 8px">
+          <h2 id="assign-title">Collectable</h2>
+          <button class="ghost" type="button" id="assign-close">Close</button>
+        </div>
+        <div class="preview" id="assign-preview"></div>
+        <label for="assign-q">Search handle</label>
+        <input id="assign-q" type="search" placeholder="@handle" autocomplete="off" />
+        <div id="assign-results"></div>
+        <div class="block" style="margin-top: 20px">
+          <div class="k">Who has it</div>
+          <div id="assign-holders"></div>
+        </div>
       </div>
     </div>
 
@@ -130,10 +227,14 @@
 
       const $ = (id) => document.getElementById(id);
       const login = $("login");
-      const inbox = $("inbox");
+      const app = $("app");
       const list = $("list");
       const count = $("count");
       const loginErr = $("login-err");
+      const skinsEl = $("skins");
+      let activeTab = "bugs";
+      let activeSlug = "";
+      let searchTimer = 0;
 
       function creds() {
         return {
@@ -154,14 +255,18 @@
 
       function showLogin(msg) {
         login.classList.remove("hidden");
-        inbox.classList.add("hidden");
+        app.classList.add("hidden");
+        $("assign").classList.add("hidden");
         loginErr.textContent = msg || "";
+        $("page-title").textContent = "Bug reports";
+        $("page-sub").textContent = "Sign in to read reports and assign collectables.";
       }
 
-      function showInbox() {
+      function showApp() {
         login.classList.add("hidden");
-        inbox.classList.remove("hidden");
+        app.classList.remove("hidden");
         loginErr.textContent = "";
+        $("page-sub").textContent = "";
       }
 
       function esc(s) {
@@ -184,6 +289,26 @@
         }
       }
 
+      function plated(handle) {
+        return `<span class="handle-day1"><span>@${esc(handle)}</span></span>`;
+      }
+
+      function previewFor(slug, handle) {
+        if (slug === "day1") return plated(handle || "handle");
+        return `<span>@${esc(handle || "handle")}</span>`;
+      }
+
+      function setTab(tab) {
+        activeTab = tab;
+        document.querySelectorAll(".tab").forEach((b) => {
+          b.classList.toggle("on", b.getAttribute("data-tab") === tab);
+        });
+        $("bugs-pane").classList.toggle("hidden", tab !== "bugs");
+        $("skins-pane").classList.toggle("hidden", tab !== "skins");
+        $("page-title").textContent = tab === "skins" ? "Collectables" : "Bug reports";
+        if (tab === "skins") loadSkins();
+      }
+
       async function load() {
         const { user, pass } = creds();
         if (!user || !pass) {
@@ -199,7 +324,7 @@
           showLogin("Wrong username or password.");
           return;
         }
-        showInbox();
+        showApp();
         const rows = data || [];
         count.textContent = rows.length === 1 ? "1 open report" : rows.length + " open reports";
         if (!rows.length) {
@@ -227,6 +352,109 @@
           .join("");
       }
 
+      async function loadSkins() {
+        const { user, pass } = creds();
+        const { data, error } = await sb.rpc("admin_list_collectables", {
+          p_user: user,
+          p_pass: pass,
+        });
+        if (error) {
+          skinsEl.innerHTML = '<p class="empty">Couldn’t load collectables. Apply migration 050?</p>';
+          return;
+        }
+        const rows = data || [];
+        $("skins-count").textContent =
+          rows.length === 1 ? "1 collectable" : rows.length + " collectables";
+        if (!rows.length) {
+          skinsEl.innerHTML = '<p class="empty">No collectables yet.</p>';
+          return;
+        }
+        skinsEl.innerHTML = rows
+          .map((r) => {
+            const n = Number(r.holders) || 0;
+            return `<article class="card skin-card" data-slug="${esc(r.slug)}" data-name="${esc(r.name)}">
+              <div class="k" style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase">${esc(r.name)}</div>
+              <div class="preview">${previewFor(r.slug, "handle")}</div>
+              <div class="meta" style="margin:0">${n === 1 ? "1 person" : n + " people"}</div>
+            </article>`;
+          })
+          .join("");
+      }
+
+      async function loadHolders() {
+        const { user, pass } = creds();
+        const { data } = await sb.rpc("admin_collectable_holders", {
+          p_user: user,
+          p_pass: pass,
+          p_slug: activeSlug,
+        });
+        const rows = data || [];
+        const el = $("assign-holders");
+        if (!rows.length) {
+          el.innerHTML = '<p class="meta" style="margin:0">Nobody yet.</p>';
+          return;
+        }
+        el.innerHTML = rows
+          .map(
+            (r) => `<div class="hit">
+              <div class="who">@${esc(r.handle)} <span>${esc(r.display_name)}</span></div>
+              <button class="resolve" type="button" data-revoke="${esc(r.handle)}">Remove</button>
+            </div>`
+          )
+          .join("");
+      }
+
+      async function searchPeople() {
+        const q = $("assign-q").value.trim();
+        const el = $("assign-results");
+        if (q.replace(/^@/, "").length < 2) {
+          el.innerHTML = "";
+          return;
+        }
+        const { user, pass } = creds();
+        const { data, error } = await sb.rpc("admin_search_profiles", {
+          p_user: user,
+          p_pass: pass,
+          p_q: q,
+          p_slug: activeSlug,
+        });
+        if (error) {
+          el.innerHTML = '<p class="err">Search failed.</p>';
+          return;
+        }
+        const rows = data || [];
+        if (!rows.length) {
+          el.innerHTML = '<p class="meta">No one matches.</p>';
+          return;
+        }
+        el.innerHTML = rows
+          .map(
+            (r) => `<div class="hit">
+              <div>
+                <div class="who">@${esc(r.handle)} <span>${esc(r.display_name)}</span></div>
+                <div class="preview" style="margin-top:6px">${previewFor(activeSlug, r.handle)}</div>
+              </div>
+              ${
+                r.has_it
+                  ? `<button class="give" type="button" disabled>Has it</button>`
+                  : `<button class="give" type="button" data-grant="${esc(r.handle)}">Give</button>`
+              }
+            </div>`
+          )
+          .join("");
+      }
+
+      function openAssign(slug, name) {
+        activeSlug = slug;
+        $("assign-title").textContent = name;
+        $("assign-preview").innerHTML = previewFor(slug, "handle");
+        $("assign-q").value = "";
+        $("assign-results").innerHTML = "";
+        $("assign").classList.remove("hidden");
+        loadHolders();
+        $("assign-q").focus();
+      }
+
       login.addEventListener("submit", async (e) => {
         e.preventDefault();
         const btn = $("login-btn");
@@ -234,6 +462,7 @@
         loginErr.textContent = "";
         setCreds($("user").value.trim(), $("pass").value);
         await load();
+        if (activeTab === "skins") await loadSkins();
         btn.disabled = false;
       });
 
@@ -242,6 +471,10 @@
         $("user").value = "";
         $("pass").value = "";
         showLogin();
+      });
+
+      document.querySelectorAll(".tab").forEach((b) => {
+        b.addEventListener("click", () => setTab(b.getAttribute("data-tab")));
       });
 
       list.addEventListener("click", async (e) => {
@@ -267,6 +500,63 @@
         const left = list.querySelectorAll("[data-id]").length;
         count.textContent = left === 1 ? "1 open report" : left + " open reports";
         if (!left) list.innerHTML = '<p class="empty">Nothing in the inbox.</p>';
+      });
+
+      skinsEl.addEventListener("click", (e) => {
+        const card = e.target.closest("[data-slug]");
+        if (!card) return;
+        openAssign(card.getAttribute("data-slug"), card.getAttribute("data-name"));
+      });
+
+      $("assign-close").addEventListener("click", () => $("assign").classList.add("hidden"));
+      $("assign").addEventListener("click", (e) => {
+        if (e.target.id === "assign") $("assign").classList.add("hidden");
+      });
+
+      $("assign-q").addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(searchPeople, 220);
+      });
+
+      $("assign-results").addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-grant]");
+        if (!btn) return;
+        const handle = btn.getAttribute("data-grant");
+        btn.disabled = true;
+        const { user, pass } = creds();
+        const { error } = await sb.rpc("admin_grant_collectable", {
+          p_user: user,
+          p_pass: pass,
+          p_handle: handle,
+          p_slug: activeSlug,
+        });
+        if (error) {
+          btn.disabled = false;
+          alert("Couldn’t assign. " + (error.message || "Try again."));
+          return;
+        }
+        await Promise.all([searchPeople(), loadHolders(), loadSkins()]);
+      });
+
+      $("assign-holders").addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-revoke]");
+        if (!btn) return;
+        const handle = btn.getAttribute("data-revoke");
+        if (!confirm("Take this collectable back from @" + handle + "?")) return;
+        btn.disabled = true;
+        const { user, pass } = creds();
+        const { error } = await sb.rpc("admin_revoke_collectable", {
+          p_user: user,
+          p_pass: pass,
+          p_handle: handle,
+          p_slug: activeSlug,
+        });
+        if (error) {
+          btn.disabled = false;
+          alert("Couldn’t remove.");
+          return;
+        }
+        await Promise.all([searchPeople(), loadHolders(), loadSkins()]);
       });
 
       load();
