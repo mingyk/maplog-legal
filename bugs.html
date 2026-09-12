@@ -115,22 +115,29 @@
       .skin-card { cursor: pointer; transition: border-color 0.15s ease; }
       .skin-card:hover { border-color: #c9a227; }
       .skin-card .preview { margin: 12px 0 4px; }
-      .handle-day1 {
+      .handle-day1,
+      .handle-foryeseo {
         display: inline-flex;
         padding: 2px;
         border-radius: 999px;
+      }
+      .handle-day1 {
         background: linear-gradient(135deg, #7a5410, #f8e7a0, #c9a227, #fff3c4, #8c6914);
       }
-      .handle-day1 span {
+      .handle-foryeseo {
+        background: linear-gradient(135deg, #8b2158, #ffb6d9, #e85a9b, #ffe0f0, #9b2d6a);
+      }
+      .handle-day1 span,
+      .handle-foryeseo span {
         display: inline-block;
-        background: #fff6d6;
-        color: #6b4e10;
         font-weight: 700;
         padding: 4px 10px;
         border-radius: 999px;
         letter-spacing: 0.02em;
         font-size: 14px;
       }
+      .handle-day1 span { background: #fff6d6; color: #6b4e10; }
+      .handle-foryeseo span { background: #fff0f6; color: #8b2158; }
       .overlay {
         position: fixed;
         inset: 0;
@@ -289,13 +296,15 @@
         }
       }
 
-      function plated(handle) {
-        return `<span class="handle-day1"><span>@${esc(handle)}</span></span>`;
+      function plated(handle, cls) {
+        return `<span class="${cls}"><span>@${esc(handle)}</span></span>`;
       }
 
       function previewFor(slug, handle) {
-        if (slug === "day1") return plated(handle || "handle");
-        return `<span>@${esc(handle || "handle")}</span>`;
+        const h = handle || "handle";
+        if (slug === "day1") return plated(h, "handle-day1");
+        if (slug === "foryeseo") return plated(h, "handle-foryeseo");
+        return `<span>@${esc(h)}</span>`;
       }
 
       function setTab(tab) {
