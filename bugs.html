@@ -748,6 +748,11 @@
         return ymd(d).slice(0, 7);
       }
 
+      function nextMonthLabel(key) {
+        const [y, m] = key.split("-").map(Number);
+        return new Date(y, m, 1).toLocaleString("en", { month: "short" });
+      }
+
       function cardHtml(title, value, hint, cmp) {
         let cls = "card stat";
         let extra = "";
@@ -958,12 +963,12 @@
             "Downloads",
             downloads == null ? "—" : fmtNum(downloads),
             downloads == null
-              ? "cumulative · enter below"
+              ? "cumulative · enter below · next month +" + Math.round((IG_MOM - 1) * 100) + "%"
               : prevDownloads != null
-                ? "cumulative · +" + fmtNum(Math.max(0, downloads - prevDownloads)) + " this month vs +" + g.downloads
-                : "cumulative · enter last month to score vs +" + g.downloads,
+                ? "cumulative · target " + fmtNum(prevDownloads * IG_MOM) + " (+" + Math.round((IG_MOM - 1) * 100) + "% MoM)"
+                : "baseline this month · " + nextMonthLabel(key) + " target " + fmtNum(downloads * IG_MOM) + " (+" + Math.round((IG_MOM - 1) * 100) + "%)",
             downloads != null && prevDownloads != null
-              ? { actual: Math.max(0, downloads - prevDownloads), target: g.downloads }
+              ? { actual: downloads, target: prevDownloads * IG_MOM }
               : null
           ),
           cardHtml(
@@ -981,7 +986,7 @@
               ? "cumulative · enter below · next month +" + Math.round((IG_MOM - 1) * 100) + "%"
               : igTarget != null
                 ? "cumulative · target " + fmtNum(igTarget) + " (+" + Math.round((IG_MOM - 1) * 100) + "% MoM)"
-                : "baseline this month · Oct target " + fmtNum(ig * IG_MOM) + " (+" + Math.round((IG_MOM - 1) * 100) + "%)",
+                : "baseline this month · " + nextMonthLabel(key) + " target " + fmtNum(ig * IG_MOM) + " (+" + Math.round((IG_MOM - 1) * 100) + "%)",
             ig != null && igTarget != null ? { actual: ig, target: igTarget } : null
           ),
         ].join("");
