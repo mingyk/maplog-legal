@@ -669,11 +669,12 @@
         [new Date(2026, 11, 31), 100],
       ];
       const MONTH_GOAL = {
-        "2026-09": { posted: 10, activated: 50, downloads: 100, d30: 0.07, ig: 130 },
-        "2026-10": { posted: 35, activated: 100, downloads: 200, d30: 0.08, ig: 163 },
-        "2026-11": { posted: 60, activated: 150, downloads: 300, d30: 0.1, ig: 203 },
-        "2026-12": { posted: 100, activated: 200, downloads: 400, d30: 0.12, ig: 254 },
+        "2026-09": { posted: 10, activated: 50, downloads: 100, d30: 0.07 },
+        "2026-10": { posted: 35, activated: 100, downloads: 200, d30: 0.08 },
+        "2026-11": { posted: 60, activated: 150, downloads: 300, d30: 0.1 },
+        "2026-12": { posted: 100, activated: 200, downloads: 400, d30: 0.12 },
       };
+      const IG_MOM = 1.25;
 
       function ymd(d) {
         const x = d instanceof Date ? d : new Date(d + "T12:00:00");
@@ -911,6 +912,12 @@
         const views = monthSum(manuals, "social_views", key);
         const prevViews = monthSum(manuals, "social_views", prevMonthKey(key));
         const ig = latestKind(manuals, "ig_followers", today);
+        const prevIg = latestKind(
+          manuals,
+          "ig_followers",
+          ymd(new Date(parseDay(today).getFullYear(), parseDay(today).getMonth(), 0))
+        );
+        const igTarget = prevIg != null ? prevIg * IG_MOM : null;
         const d1 = rate(m.d1_kept, m.d1_cohort);
         const d7 = rate(m.d7_kept, m.d7_cohort);
         const d30 = rate(m.d30_kept, m.d30_cohort);
@@ -969,8 +976,13 @@
           cardHtml(
             "IG followers",
             ig == null ? "—" : fmtNum(ig),
-            ig == null ? "cumulative · enter below · target " + g.ig : "cumulative · target " + g.ig,
-            ig == null ? null : { actual: ig, target: g.ig }
+            ig == null
+              ? "cumulative · enter below · next month +" + Math.round((IG_MOM - 1) * 100) + "%"
+              : igTarget != null
+                ? "cumulative · target " + fmtNum(igTarget) + " (+" + Math.round((IG_MOM - 1) * 100) + "% MoM)"
+                : "baseline this month · Oct target " + fmtNum(ig * IG_MOM) + " (+" + Math.round((IG_MOM - 1) * 100) + "%)",
+            ig != null && igTarget != null ? { actual: ig, target: igTarget } : null
+          ),
           ),
         ].join("");
       }
