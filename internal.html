@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>maplog — Internal</title>
+    <style>
+      :root {
+        --bg: #fbf8f3;
+        --surface: #ffffff;
+        --text: #2b2b2b;
+        --muted: #8a8a8a;
+        --accent: #3c4453;
+        --border: #ece7de;
+        --danger: #c45c4a;
+        --good: #2f7d4a;
+      }
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+        line-height: 1.5;
+        font-size: 16px;
+      }
+      .wrap { max-width: 720px; margin: 0 auto; padding: 48px 24px 96px; }
+      h1 { font-size: 28px; letter-spacing: -0.02em; margin: 0 0 4px; }
+      .updated { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+      .pill {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 600;
+        color: #ffffff;
+        background: var(--accent);
+        border-radius: 999px;
+        padding: 4px 12px;
+        margin-bottom: 16px;
+      }
+      label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 6px; }
+      input, select {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 14px;
+        font-size: 16px;
+        margin-bottom: 14px;
+        background: var(--surface);
+        color: var(--text);
+      }
+      button {
+        font: inherit;
+        font-weight: 600;
+        border: 0;
+        cursor: pointer;
+      }
+      .primary {
+        background: var(--accent);
+        color: #fff;
+        border-radius: 999px;
+        padding: 12px 20px;
+      }
+      .primary:disabled { opacity: 0.5; cursor: default; }
+      .ghost {
+        background: transparent;
+        color: var(--muted);
+        padding: 8px 0;
+      }
+      .err { color: var(--danger); font-size: 14px; min-height: 20px; margin: 0 0 8px; }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px 22px;
+        margin-top: 16px;
+      }
+      .card h2 { font-size: 18px; margin: 0 0 6px; letter-spacing: -0.01em; }
+      .meta { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+      .block { margin: 0 0 12px; }
+      .block .k { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 2px; }
+      .block p { margin: 0; color: #4a4a4a; white-space: pre-wrap; }
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+      .resolve {
+        background: var(--danger);
+        color: #fff;
+        border-radius: 999px;
+        padding: 8px 16px;
+        font-size: 14px;
+      }
+      .resolve:disabled { opacity: 0.5; }
+      .give {
+        background: var(--accent);
+        color: #fff;
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-size: 13px;
+      }
+      .give:disabled { opacity: 0.5; }
+      .empty { color: var(--muted); text-align: center; padding: 48px 12px; }
+      .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+      .hidden { display: none; }
+      .tabs { display: flex; gap: 8px; }
+      .tab {
+        background: var(--surface);
+        color: var(--muted);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 8px 16px;
+        font-size: 14px;
+      }
+      .tab.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+      .skin-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 8px; }
+      .skin-card { cursor: pointer; transition: border-color 0.15s ease; }
+      .skin-card:hover { border-color: #c9a227; }
+      .skin-card .preview { margin: 12px 0 4px; }
+      .handle-day1,
+      .handle-foryeseo {
+        display: inline-flex;
+        padding: 2px;
+        border-radius: 999px;
+      }
+      .handle-day1 {
+        background: linear-gradient(135deg, #7a5410, #f8e7a0, #c9a227, #fff3c4, #8c6914);
+      }
+      .handle-foryeseo {
+        background: linear-gradient(135deg, #8b2158, #ffb6d9, #e85a9b, #ffe0f0, #9b2d6a);
+      }
+      .handle-day1 span,
+      .handle-foryeseo span {
+        display: inline-block;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 999px;
+        letter-spacing: 0.02em;
+        font-size: 14px;
+      }
+      .handle-day1 span { background: #fff6d6; color: #6b4e10; }
+      .handle-foryeseo span { background: #fff0f6; color: #8b2158; }
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(38, 34, 28, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        z-index: 20;
+      }
+      .overlay.hidden { display: none; }
+      .sheet {
+        background: var(--surface);
+        border-radius: 20px 20px 16px 16px;
+        padding: 24px;
+        width: min(560px, 100%);
+        max-height: 86vh;
+        overflow: auto;
+        margin-bottom: 8px;
+      }
+      .sheet h2 { font-size: 22px; margin: 0 0 4px; }
+      .hit {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .hit:last-child { border-bottom: 0; }
+      .who { font-weight: 600; }
+      .who span { font-weight: 400; color: var(--muted); }
+      .chart-card { padding: 16px 12px 12px; }
+      .chart-card svg { display: block; width: 100%; height: 240px; }
+      .chart-legend {
+        display: flex; gap: 16px; justify-content: center;
+        font-size: 12px; color: var(--muted); margin-top: 8px;
+      }
+      .chart-legend i {
+        display: inline-block; width: 18px; height: 0;
+        border-top: 2px solid currentColor; margin-right: 6px;
+        vertical-align: middle;
+      }
+      .chart-legend .goal i { border-top-style: dashed; color: #9a9386; }
+      .cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .stat { margin-top: 0; }
+      .stat .num {
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+        margin: 4px 0 0;
+      }
+      .stat .delta {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 13px;
+        font-weight: 600;
+        margin-top: 6px;
+      }
+      .stat.up .num, .stat.up .delta { color: var(--good); }
+      .stat.down .num, .stat.down .delta { color: var(--danger); }
+      .stat .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+      .section-k {
+        font-size: 12px; font-weight: 600; color: var(--muted);
+        letter-spacing: 0.04em; text-transform: uppercase;
+        margin: 22px 0 0;
+      }
+      .enter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      @media (max-width: 560px) {
+        .cards { grid-template-columns: 1fr; }
+        .enter-row { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <span class="pill">maplog · internal</span>
+      <h1 id="page-title">Metrics</h1>
+      <div class="updated" id="page-sub">Sign in to see metrics, read reports, and assign collectables.</div>
+
+      <form id="login" class="card" method="post" action="#" autocomplete="username">
+        <label for="user">Username</label>
+        <input id="user" name="username" type="text" autocomplete="username" />
+        <label for="pass">Password</label>
+        <input id="pass" name="password" type="password" autocomplete="current-password" />
+        <p class="err" id="login-err"></p>
+        <button class="primary" type="submit" id="login-btn">Open inbox</button>
+      </form>
+
+      <div id="app" class="hidden">
+        <div class="top">
+          <div class="tabs">
+            <button class="tab on" type="button" data-tab="metrics">Metrics</button>
+            <button class="tab" type="button" data-tab="bugs">Reports</button>
+            <button class="tab" type="button" data-tab="skins">Collectables</button>
+          </div>
+          <button class="ghost" type="button" id="out">Sign out</button>
+        </div>
+        <div id="metrics-pane">
+          <div class="updated" id="metrics-sub" style="margin: 16px 0 0"></div>
+          <div class="card chart-card">
+            <div class="k" style="padding: 0 10px">Posted DAU</div>
+            <svg id="dau-chart" viewBox="0 0 640 240" preserveAspectRatio="none"></svg>
+            <div class="chart-legend">
+              <span class="goal"><i></i>goal</span>
+              <span style="color: var(--good)"><i></i>above</span>
+              <span style="color: var(--danger)"><i></i>below</span>
+            </div>
+          </div>
+          <div class="section-k">Today</div>
+          <div class="cards" id="day-cards"></div>
+          <div class="section-k">This month</div>
+          <div class="cards" id="month-cards"></div>
+          <div class="section-k">Enter store / social</div>
+          <form class="card" id="metric-form" style="margin-top: 10px">
+            <div class="enter-row">
+              <div>
+                <label for="metric-kind">Metric</label>
+                <select id="metric-kind">
+                  <option value="downloads">App downloads (cumulative)</option>
+                  <option value="social_views">Social views</option>
+                  <option value="ig_followers">Instagram followers (cumulative)</option>
+                </select>
+              </div>
+              <div>
+                <label for="metric-day">Date</label>
+                <input id="metric-day" type="date" />
+              </div>
+            </div>
+            <label for="metric-value">Number</label>
+            <input id="metric-value" type="number" min="0" step="1" inputmode="numeric" />
+            <p class="meta" style="margin:-6px 0 12px">Downloads and followers are the running total, not new that day.</p>
+            <p class="err" id="metric-err"></p>
+            <button class="primary" type="submit" id="metric-save">Save</button>
+          </form>
+        </div>
+        <div id="bugs-pane" class="hidden">
+          <div class="updated" id="count" style="margin: 16px 0 0"></div>
+          <div id="list"></div>
+        </div>
+        <div id="skins-pane" class="hidden">
+          <div class="updated" id="skins-count" style="margin: 16px 0 0"></div>
+          <div id="skins" class="skin-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="assign" class="overlay hidden">
+      <div class="sheet">
+        <div class="row" style="margin: 0 0 8px">
+          <h2 id="assign-title">Collectable</h2>
+          <button class="ghost" type="button" id="assign-close">Close</button>
+        </div>
+        <div class="preview" id="assign-preview"></div>
+        <label for="assign-q">Search handle</label>
+        <input id="assign-q" type="search" placeholder="@handle" autocomplete="off" />
+        <div id="assign-results"></div>
+        <div class="block" style="margin-top: 20px">
+          <div class="k">Who has it</div>
+          <div id="assign-holders"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      const SUPABASE_URL = "https://dyuuupftsfpoggwlnhbt.supabase.co";
+      const SUPABASE_ANON =
+        "sb_publishable_jGSj71BIxZC9faCW_olVMg_6FASoUQV";
+      const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+      const KEY_U = "maplog.bugs.user";
+      const KEY_P = "maplog.bugs.pass";
+
+      const $ = (id) => document.getElementById(id);
+      if (location.search) {
+        history.replaceState({}, "", location.pathname + location.hash);
+      }
+      const login = $("login");
+      const app = $("app");
+      const list = $("list");
+      const count = $("count");
+      const loginErr = $("login-err");
+      const skinsEl = $("skins");
+      let activeTab = "metrics";
+      let activeSlug = "";
+      let searchTimer = 0;
+
+      function creds() {
+        return {
+          user: sessionStorage.getItem(KEY_U) || "",
+          pass: sessionStorage.getItem(KEY_P) || "",
+        };
+      }
+
+      function setCreds(user, pass) {
+        sessionStorage.setItem(KEY_U, user);
+        sessionStorage.setItem(KEY_P, pass);
+      }
+
+      function clearCreds() {
+        sessionStorage.removeItem(KEY_U);
+        sessionStorage.removeItem(KEY_P);
+      }
+
+      function showLogin(msg) {
+        login.classList.remove("hidden");
+        app.classList.add("hidden");
+        $("assign").classList.add("hidden");
+        loginErr.textContent = msg || "";
+        $("page-title").textContent = "Metrics";
+        $("page-sub").textContent = "Sign in to see metrics, read reports, and assign collectables.";
+      }
+
+      function showApp() {
+        login.classList.add("hidden");
+        app.classList.remove("hidden");
+        loginErr.textContent = "";
+        $("page-sub").textContent = "";
+      }
+
+      function esc(s) {
+        return String(s ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
+      function when(iso) {
+        try {
+          return new Date(iso).toLocaleString(undefined, {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          });
+        } catch {
+          return iso;
+        }
+      }
+
+      function plated(handle, cls) {
+        return `<span class="${cls}"><span>@${esc(handle)}</span></span>`;
+      }
+
+      function previewFor(slug, handle) {
+        const h = handle || "handle";
+        if (slug === "day1") return plated(h, "handle-day1");
+        if (slug === "foryeseo") return plated(h, "handle-foryeseo");
+        return `<span>@${esc(h)}</span>`;
+      }
+
+      function setTab(tab) {
+        activeTab = tab;
+        document.querySelectorAll(".tab").forEach((b) => {
+          b.classList.toggle("on", b.getAttribute("data-tab") === tab);
+        });
+        $("bugs-pane").classList.toggle("hidden", tab !== "bugs");
+        $("skins-pane").classList.toggle("hidden", tab !== "skins");
+        $("metrics-pane").classList.toggle("hidden", tab !== "metrics");
+        $("page-title").textContent =
+          tab === "skins" ? "Collectables" : tab === "metrics" ? "Metrics" : "Bug reports";
+        if (tab === "skins") loadSkins();
+        if (tab === "metrics") loadMetrics();
+      }
+
+      async function load() {
+        const { user, pass } = creds();
+        if (!user || !pass) {
+          showLogin();
+          return;
+        }
+        const { data, error } = await sb.rpc("admin_list_bug_reports", {
+          p_user: user,
+          p_pass: pass,
+        });
+        if (error) {
+          clearCreds();
+          showLogin("Wrong username or password.");
+          return;
+        }
+        showApp();
+        const rows = data || [];
+        count.textContent = rows.length === 1 ? "1 open report" : rows.length + " open reports";
+        if (!rows.length) {
+          list.innerHTML = '<p class="empty">Nothing in the inbox.</p>';
+        } else {
+          list.innerHTML = rows
+            .map((r) => {
+              const who = r.handle ? "@" + r.handle : r.display_name || "someone";
+              const expected = r.expected
+                ? `<div class="block"><div class="k">Expected</div><p>${esc(r.expected)}</p></div>`
+                : "";
+              return `<article class="card" data-id="${esc(r.id)}">
+              <h2>${esc(r.title)}</h2>
+              <div class="meta">${esc(who)} · ${esc(when(r.created_at))}</div>
+              <div class="block"><div class="k">What happened</div><p>${esc(r.description)}</p></div>
+              <div class="block"><div class="k">How to reproduce</div><p>${esc(r.reproduce)}</p></div>
+              ${expected}
+              <div class="row">
+                <span></span>
+                <button class="resolve" type="button" data-resolve="${esc(r.id)}">Resolve</button>
+              </div>
+            </article>`;
+            })
+            .join("");
+        }
+        setTab(activeTab);
+      }
+
+      async function loadSkins() {
+        const { user, pass } = creds();
+        const { data, error } = await sb.rpc("admin_list_collectables", {
+          p_user: user,
+          p_pass: pass,
+        });
+        if (error) {
+          skinsEl.innerHTML = '<p class="empty">Couldn’t load collectables. Apply migration 050?</p>';
+          return;
+        }
+        const rows = data || [];
+        $("skins-count").textContent =
+          rows.length === 1 ? "1 collectable" : rows.length + " collectables";
+        if (!rows.length) {
+          skinsEl.innerHTML = '<p class="empty">No collectables yet.</p>';
+          return;
+        }
+        skinsEl.innerHTML = rows
+          .map((r) => {
+            const n = Number(r.holders) || 0;
+            return `<article class="card skin-card" data-slug="${esc(r.slug)}" data-name="${esc(r.name)}">
+              <div class="k" style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase">${esc(r.name)}</div>
+              <div class="preview">${previewFor(r.slug, "handle")}</div>
+              <div class="meta" style="margin:0">${n === 1 ? "1 person" : n + " people"}</div>
+            </article>`;
+          })
+          .join("");
+      }
+
+      async function loadHolders() {
+        const { user, pass } = creds();
+        const { data } = await sb.rpc("admin_collectable_holders", {
+          p_user: user,
+          p_pass: pass,
+          p_slug: activeSlug,
+        });
+        const rows = data || [];
+        const el = $("assign-holders");
+        if (!rows.length) {
+          el.innerHTML = '<p class="meta" style="margin:0">Nobody yet.</p>';
+          return;
+        }
+        el.innerHTML = rows
+          .map(
+            (r) => `<div class="hit">
+              <div class="who">@${esc(r.handle)} <span>${esc(r.display_name)}</span></div>
+              <button class="resolve" type="button" data-revoke="${esc(r.handle)}">Remove</button>
+            </div>`
+          )
+          .join("");
+      }
+
+      async function searchPeople() {
+        const q = $("assign-q").value.trim();
+        const el = $("assign-results");
+        if (q.replace(/^@/, "").length < 2) {
+          el.innerHTML = "";
+          return;
+        }
+        const { user, pass } = creds();
+        const { data, error } = await sb.rpc("admin_search_profiles", {
+          p_user: user,
+          p_pass: pass,
+          p_q: q,
+          p_slug: activeSlug,
+        });
+        if (error) {
+          el.innerHTML = '<p class="err">Search failed.</p>';
+          return;
+        }
+        const rows = data || [];
+        if (!rows.length) {
+          el.innerHTML = '<p class="meta">No one matches.</p>';
+          return;
+        }
+        el.innerHTML = rows
+          .map(
+            (r) => `<div class="hit">
+              <div>
+                <div class="who">@${esc(r.handle)} <span>${esc(r.display_name)}</span></div>
+                <div class="preview" style="margin-top:6px">${previewFor(activeSlug, r.handle)}</div>
+              </div>
+              ${
+                r.has_it
+                  ? `<button class="give" type="button" disabled>Has it</button>`
+                  : `<button class="give" type="button" data-grant="${esc(r.handle)}">Give</button>`
+              }
+            </div>`
+          )
+          .join("");
+      }
+
+      function openAssign(slug, name) {
+        activeSlug = slug;
+        $("assign-title").textContent = name;
+        $("assign-preview").innerHTML = previewFor(slug, "handle");
+        $("assign-q").value = "";
+        $("assign-results").innerHTML = "";
+        $("assign").classList.remove("hidden");
+        loadHolders();
+        $("assign-q").focus();
+      }
+
+      login.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = $("login-btn");
+        btn.disabled = true;
+        loginErr.textContent = "";
+        setCreds($("user").value.trim(), $("pass").value);
+        await load();
+        btn.disabled = false;
+      });
+
+      $("out").addEventListener("click", () => {
+        clearCreds();
+        $("user").value = "";
+        $("pass").value = "";
+        showLogin();
+      });
+
+      document.querySelectorAll(".tab").forEach((b) => {
+        b.addEventListener("click", () => setTab(b.getAttribute("data-tab")));
+      });
+
+      list.addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-resolve]");
+        if (!btn) return;
+        const id = btn.getAttribute("data-resolve");
+        if (!id) return;
+        if (!confirm("Resolve this report? It will be deleted.")) return;
+        btn.disabled = true;
+        const { user, pass } = creds();
+        const { error } = await sb.rpc("admin_resolve_bug_report", {
+          p_id: id,
+          p_user: user,
+          p_pass: pass,
+        });
+        if (error) {
+          btn.disabled = false;
+          alert("Couldn’t resolve. Try signing in again.");
+          return;
+        }
+        const card = btn.closest("[data-id]");
+        if (card) card.remove();
+        const left = list.querySelectorAll("[data-id]").length;
+        count.textContent = left === 1 ? "1 open report" : left + " open reports";
+        if (!left) list.innerHTML = '<p class="empty">Nothing in the inbox.</p>';
+      });
+
+      skinsEl.addEventListener("click", (e) => {
+        const card = e.target.closest("[data-slug]");
+        if (!card) return;
+        openAssign(card.getAttribute("data-slug"), card.getAttribute("data-name"));
+      });
+
+      $("assign-close").addEventListener("click", () => $("assign").classList.add("hidden"));
+      $("assign").addEventListener("click", (e) => {
+        if (e.target.id === "assign") $("assign").classList.add("hidden");
+      });
+
+      $("assign-q").addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(searchPeople, 220);
+      });
+
+      $("assign-results").addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-grant]");
+        if (!btn) return;
+        const handle = btn.getAttribute("data-grant");
+        btn.disabled = true;
+        const { user, pass } = creds();
+        const { error } = await sb.rpc("admin_grant_collectable", {
+          p_user: user,
+          p_pass: pass,
+          p_handle: handle,
+          p_slug: activeSlug,
+        });
+        if (error) {
+          btn.disabled = false;
+          alert("Couldn’t assign. " + (error.message || "Try again."));
+          return;
+        }
+        await Promise.all([searchPeople(), loadHolders(), loadSkins()]);
+      });
+
+      $("assign-holders").addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-revoke]");
+        if (!btn) return;
+        const handle = btn.getAttribute("data-revoke");
+        if (!confirm("Take this collectable back from @" + handle + "?")) return;
+        btn.disabled = true;
+        const { user, pass } = creds();
+        const { error } = await sb.rpc("admin_revoke_collectable", {
+          p_user: user,
+          p_pass: pass,
+          p_handle: handle,
+          p_slug: activeSlug,
+        });
+        if (error) {
+          btn.disabled = false;
+          alert("Couldn’t remove.");
+          return;
+        }
+        await Promise.all([searchPeople(), loadHolders(), loadSkins()]);
+      });
+
+      const GOAL_START = new Date(2026, 8, 1);
+      const GOAL_END = new Date(2026, 11, 31);
+      const ANCHORS = [
+        [new Date(2026, 8, 1), 10],
+        [new Date(2026, 8, 30), 10],
+        [new Date(2026, 9, 31), 35],
+        [new Date(2026, 10, 30), 60],
+        [new Date(2026, 11, 31), 100],
+      ];
+      const MONTH_GOAL = {
+        "2026-09": { posted: 10, activated: 50, downloads: 100, d30: 0.07 },
+        "2026-10": { posted: 35, activated: 100, downloads: 200, d30: 0.08 },
+        "2026-11": { posted: 60, activated: 150, downloads: 300, d30: 0.1 },
+        "2026-12": { posted: 100, activated: 200, downloads: 400, d30: 0.12 },
+      };
+      const IG_MOM = 1.25;
+
+      function ymd(d) {
+        const x = d instanceof Date ? d : new Date(d + "T12:00:00");
+        const y = x.getFullYear();
+        const m = String(x.getMonth() + 1).padStart(2, "0");
+        const day = String(x.getDate()).padStart(2, "0");
+        return y + "-" + m + "-" + day;
+      }
+
+      function parseDay(s) {
+        const [y, m, d] = String(s).slice(0, 10).split("-").map(Number);
+        return new Date(y, m - 1, d);
+      }
+
+      function goalAt(d) {
+        const t = d.getTime();
+        if (t <= ANCHORS[0][0].getTime()) return ANCHORS[0][1];
+        for (let i = 1; i < ANCHORS.length; i++) {
+          const a = ANCHORS[i - 1];
+          const b = ANCHORS[i];
+          if (t <= b[0].getTime()) {
+            const span = b[0].getTime() - a[0].getTime();
+            const u = span === 0 ? 1 : (t - a[0].getTime()) / span;
+            return a[1] + (b[1] - a[1]) * u;
+          }
+        }
+        return ANCHORS[ANCHORS.length - 1][1];
+      }
+
+      function monthKey(s) {
+        return String(s).slice(0, 7);
+      }
+
+      function fmtNum(n, digits) {
+        if (n == null || Number.isNaN(n)) return "—";
+        const x = Number(n);
+        if (digits != null) return x.toFixed(digits);
+        return String(Math.round(x));
+      }
+
+      function fmtPct(n) {
+        if (n == null || Number.isNaN(n)) return "—";
+        return (Number(n) * 100).toFixed(0) + "%";
+      }
+
+      function rate(kept, cohort) {
+        if (!cohort) return null;
+        return kept / cohort;
+      }
+
+      function monthSum(manuals, kind, key) {
+        return (manuals || [])
+          .filter((r) => r.kind === kind && monthKey(r.day) === key)
+          .reduce((s, r) => s + Number(r.value || 0), 0);
+      }
+
+      function latestKind(manuals, kind, before) {
+        const rows = (manuals || [])
+          .filter((r) => r.kind === kind && String(r.day).slice(0, 10) <= before)
+          .sort((a, b) => String(a.day).localeCompare(String(b.day)));
+        if (!rows.length) return null;
+        return Number(rows[rows.length - 1].value);
+      }
+
+      function prevMonthKey(key) {
+        const [y, m] = key.split("-").map(Number);
+        const d = new Date(y, m - 2, 1);
+        return ymd(d).slice(0, 7);
+      }
+
+      function nextMonthLabel(key) {
+        const [y, m] = key.split("-").map(Number);
+        return new Date(y, m, 1).toLocaleString("en", { month: "short" });
+      }
+
+      function cardHtml(title, value, hint, cmp) {
+        let cls = "card stat";
+        let extra = "";
+        if (cmp && cmp.target != null && cmp.actual != null) {
+          const diff = cmp.actual - cmp.target;
+          const met = diff >= 0;
+          cls += met ? " up" : " down";
+          const arrow = met ? "▲" : "▼";
+          const abs = Math.abs(diff);
+          const shown = cmp.pct
+            ? (met ? "+" : "−") + (abs * 100).toFixed(0) + " pp"
+            : (met ? "+" : "−") + fmtNum(abs, cmp.digits);
+          extra = `<div class="delta">${arrow} ${shown} vs ${cmp.pct ? fmtPct(cmp.target) : fmtNum(cmp.target, cmp.digits)}</div>`;
+        }
+        return `<article class="${cls}">
+          <div class="k">${esc(title)}</div>
+          <div class="num">${esc(value)}</div>
+          ${extra}
+          ${hint ? `<div class="hint">${esc(hint)}</div>` : ""}
+        </article>`;
+      }
+
+      function drawDauChart(series, firstData, today) {
+        const svg = $("dau-chart");
+        const W = 640;
+        const H = 240;
+        const pad = { l: 36, r: 12, t: 16, b: 28 };
+        const start = GOAL_START;
+        const end = GOAL_END;
+        const days = [];
+        for (let t = new Date(start); t <= end; t = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1)) {
+          days.push(new Date(t));
+        }
+        const byDay = new Map((series || []).map((r) => [String(r.day).slice(0, 10), r]));
+        const startActual = firstData ? parseDay(firstData) : null;
+
+        const points = days.map((d, i) => {
+          const key = ymd(d);
+          const row = byDay.get(key);
+          const posted = row ? Number(row.posted) || 0 : 0;
+          const has = !!startActual && d >= startActual && d <= parseDay(today);
+          return { d, i, key, posted, goal: goalAt(d), has };
+        });
+
+        const maxY = Math.max(100, ...points.map((p) => p.goal), ...points.filter((p) => p.has).map((p) => p.posted), 1);
+        const x = (i) => pad.l + (i / (days.length - 1)) * (W - pad.l - pad.r);
+        const y = (v) => pad.t + (1 - v / maxY) * (H - pad.t - pad.b);
+
+        let goal = "";
+        points.forEach((p, i) => {
+          goal += (i ? " L " : "M ") + x(p.i).toFixed(1) + " " + y(p.goal).toFixed(1);
+        });
+
+        const actual = points.filter((p) => p.has);
+        let fills = "";
+        let lines = "";
+        for (let i = 0; i < actual.length - 1; i++) {
+          const a = actual[i];
+          const b = actual[i + 1];
+          const segs = splitVsGoal(a, b);
+          segs.forEach((s) => {
+            const above = s.y1 >= s.g1 - 1e-6 && s.y2 >= s.g2 - 1e-6;
+            const color = above ? "var(--good)" : "var(--danger)";
+            const fill = above ? "rgba(47,125,74,0.16)" : "rgba(196,92,74,0.16)";
+            const x1 = x(s.i1);
+            const x2 = x(s.i2);
+            fills += `<polygon fill="${fill}" points="${x1.toFixed(1)},${y(s.g1).toFixed(1)} ${x1.toFixed(1)},${y(s.y1).toFixed(1)} ${x2.toFixed(1)},${y(s.y2).toFixed(1)} ${x2.toFixed(1)},${y(s.g2).toFixed(1)}" />`;
+            lines += `<path d="M ${x1.toFixed(1)} ${y(s.y1).toFixed(1)} L ${x2.toFixed(1)} ${y(s.y2).toFixed(1)}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" />`;
+          });
+        }
+        if (actual.length === 1) {
+          const p = actual[0];
+          const color = p.posted >= p.goal ? "var(--good)" : "var(--danger)";
+          lines += `<circle cx="${x(p.i).toFixed(1)}" cy="${y(p.posted).toFixed(1)}" r="3.5" fill="${color}" />`;
+        }
+
+        const ticks = [0, 10, 35, 60, 100].filter((v) => v <= maxY);
+        const grid = ticks
+          .map((v) => {
+            const yy = y(v).toFixed(1);
+            return `<line x1="${pad.l}" x2="${W - pad.r}" y1="${yy}" y2="${yy}" stroke="#ece7de" /><text x="4" y="${(Number(yy) + 4).toFixed(1)}" fill="#8a8a8a" font-size="10">${v}</text>`;
+          })
+          .join("");
+        const months = [
+          [new Date(2026, 8, 1), "Sep"],
+          [new Date(2026, 9, 1), "Oct"],
+          [new Date(2026, 10, 1), "Nov"],
+          [new Date(2026, 11, 1), "Dec"],
+        ]
+          .map(([d, lab]) => {
+            const i = days.findIndex((x) => ymd(x) === ymd(d));
+            if (i < 0) return "";
+            return `<text x="${x(i).toFixed(1)}" y="${H - 8}" fill="#8a8a8a" font-size="11">${lab}</text>`;
+          })
+          .join("");
+
+        svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+        svg.innerHTML =
+          grid +
+          fills +
+          `<path d="${goal}" fill="none" stroke="#9a9386" stroke-width="1.6" stroke-dasharray="5 4" />` +
+          lines +
+          months;
+      }
+
+      function splitVsGoal(a, b) {
+        const i1 = a.i;
+        const i2 = b.i;
+        const y1 = a.posted;
+        const y2 = b.posted;
+        const g1 = a.goal;
+        const g2 = b.goal;
+        const d1 = y1 - g1;
+        const d2 = y2 - g2;
+        if (d1 === 0 && d2 === 0) {
+          return [{ i1, i2, y1, y2, g1, g2 }];
+        }
+        if (d1 * d2 >= 0) {
+          return [{ i1, i2, y1, y2, g1, g2 }];
+        }
+        const t = d1 / (d1 - d2);
+        const im = i1 + (i2 - i1) * t;
+        const ym = y1 + (y2 - y1) * t;
+        const gm = g1 + (g2 - g1) * t;
+        return [
+          { i1, i2: im, y1, y2: ym, g1, g2: gm },
+          { i1: im, i2, y1: ym, y2, g1: gm, g2 },
+        ];
+      }
+
+      async function loadMetrics() {
+        const { user, pass } = creds();
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Los_Angeles";
+        const { data, error } = await sb.rpc("admin_metrics", {
+          p_user: user,
+          p_pass: pass,
+          p_tz: tz,
+        });
+        if (error) {
+          $("metrics-sub").textContent = "Couldn’t load metrics. Apply migration 054?";
+          $("day-cards").innerHTML = "";
+          $("month-cards").innerHTML = "";
+          return;
+        }
+        const m = data || {};
+        const today = String(m.today).slice(0, 10);
+        $("metrics-sub").textContent =
+          "Live as of " + today + " · posted DAU vs the Sept–Dec ramp · refreshes when you open this tab";
+        if ($("metric-day") && !$("metric-day").value) $("metric-day").value = today;
+
+        drawDauChart(m.series || [], m.first_data, today);
+
+        $("day-cards").innerHTML = [
+          cardHtml("Posted DAU", fmtNum(m.today_posted), "people who posted today"),
+          cardHtml("Opened DAU", fmtNum(m.today_opened), "opened the app"),
+          cardHtml("New activated", fmtNum(m.today_activated), "first shot today"),
+        ].join("");
+
+        const key = monthKey(today);
+        const g = MONTH_GOAL[key] || MONTH_GOAL["2026-09"];
+        const manuals = m.manuals || [];
+        const downloads = latestKind(manuals, "downloads", today);
+        const prevDownloads = latestKind(manuals, "downloads", ymd(new Date(parseDay(today).getFullYear(), parseDay(today).getMonth(), 0)));
+        const views = monthSum(manuals, "social_views", key);
+        const prevViews = monthSum(manuals, "social_views", prevMonthKey(key));
+        const ig = latestKind(manuals, "ig_followers", today);
+        const prevIg = latestKind(
+          manuals,
+          "ig_followers",
+          ymd(new Date(parseDay(today).getFullYear(), parseDay(today).getMonth(), 0))
+        );
+        const igTarget = prevIg != null ? prevIg * IG_MOM : null;
+        const d1 = rate(m.d1_kept, m.d1_cohort);
+        const d7 = rate(m.d7_kept, m.d7_cohort);
+        const d30 = rate(m.d30_kept, m.d30_cohort);
+        const avg = m.month_posted_avg == null ? null : Number(m.month_posted_avg);
+
+        $("month-cards").innerHTML = [
+          cardHtml(
+            "Avg posted DAU",
+            avg == null ? "—" : fmtNum(avg, 1),
+            "vs " + g.posted + " month target",
+            avg == null ? null : { actual: avg, target: g.posted, digits: 1 }
+          ),
+          cardHtml(
+            "New activated",
+            fmtNum(m.month_activated),
+            "first shot this month · target " + g.activated,
+            { actual: Number(m.month_activated) || 0, target: g.activated }
+          ),
+          cardHtml(
+            "D1 return-to-post",
+            d1 == null ? "—" : fmtPct(d1),
+            m.d1_cohort ? m.d1_kept + " / " + m.d1_cohort + " from yesterday" : "no cohort yet"
+          ),
+          cardHtml(
+            "D7 return-to-post",
+            d7 == null ? "—" : fmtPct(d7),
+            m.d7_cohort ? m.d7_kept + " / " + m.d7_cohort + " from 7 days ago" : "no cohort yet"
+          ),
+          cardHtml(
+            "D30 retention",
+            d30 == null ? "—" : fmtPct(d30),
+            m.d30_cohort ? m.d30_kept + " / " + m.d30_cohort + " · target " + fmtPct(g.d30) : "no cohort yet",
+            d30 == null ? null : { actual: d30, target: g.d30, pct: true }
+          ),
+          cardHtml(
+            "Downloads",
+            downloads == null ? "—" : fmtNum(downloads),
+            downloads == null
+              ? "cumulative · enter below · next month +" + Math.round((IG_MOM - 1) * 100) + "%"
+              : prevDownloads != null
+                ? "cumulative · target " + fmtNum(prevDownloads * IG_MOM) + " (+" + Math.round((IG_MOM - 1) * 100) + "% MoM)"
+                : "baseline this month · " + nextMonthLabel(key) + " target " + fmtNum(downloads * IG_MOM) + " (+" + Math.round((IG_MOM - 1) * 100) + "%)",
+            downloads != null && prevDownloads != null
+              ? { actual: downloads, target: prevDownloads * IG_MOM }
+              : null
+          ),
+          cardHtml(
+            "Social views",
+            views ? fmtNum(views) : "—",
+            prevViews
+              ? "vs +30% on last month (" + fmtNum(prevViews * 1.3) + ")"
+              : "enter below · +30% once last month exists",
+            views && prevViews ? { actual: views, target: prevViews * 1.3 } : null
+          ),
+          cardHtml(
+            "IG followers",
+            ig == null ? "—" : fmtNum(ig),
+            ig == null
+              ? "cumulative · enter below · next month +" + Math.round((IG_MOM - 1) * 100) + "%"
+              : igTarget != null
+                ? "cumulative · target " + fmtNum(igTarget) + " (+" + Math.round((IG_MOM - 1) * 100) + "% MoM)"
+                : "baseline this month · " + nextMonthLabel(key) + " target " + fmtNum(ig * IG_MOM) + " (+" + Math.round((IG_MOM - 1) * 100) + "%)",
+            ig != null && igTarget != null ? { actual: ig, target: igTarget } : null
+          ),
+        ].join("");
+      }
+
+      $("metric-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = $("metric-save");
+        const err = $("metric-err");
+        err.textContent = "";
+        const day = $("metric-day").value;
+        const kind = $("metric-kind").value;
+        const value = Number($("metric-value").value);
+        if (!day || !kind || !Number.isFinite(value) || value < 0) {
+          err.textContent = "Enter a date and a number.";
+          return;
+        }
+        btn.disabled = true;
+        const { user, pass } = creds();
+        const { error } = await sb.rpc("admin_upsert_metric", {
+          p_user: user,
+          p_pass: pass,
+          p_day: day,
+          p_kind: kind,
+          p_value: value,
+        });
+        btn.disabled = false;
+        if (error) {
+          err.textContent = error.message || "Couldn’t save.";
+          return;
+        }
+        $("metric-value").value = "";
+        await loadMetrics();
+      });
+
+      load();
+    </script>
+  </body>
+</html>
