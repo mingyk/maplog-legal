@@ -14,6 +14,7 @@
         --accent: #3c4453;
         --border: #ece7de;
         --danger: #c45c4a;
+        --good: #2f7d4a;
       }
       * { box-sizing: border-box; }
       html { -webkit-text-size-adjust: 100%; }
@@ -40,7 +41,7 @@
         margin-bottom: 16px;
       }
       label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 6px; }
-      input {
+      input, select {
         width: 100%;
         border: 1px solid var(--border);
         border-radius: 12px;
@@ -170,13 +171,60 @@
       .hit:last-child { border-bottom: 0; }
       .who { font-weight: 600; }
       .who span { font-weight: 400; color: var(--muted); }
+      .chart-card { padding: 16px 12px 12px; }
+      .chart-card svg { display: block; width: 100%; height: 240px; }
+      .chart-legend {
+        display: flex; gap: 16px; justify-content: center;
+        font-size: 12px; color: var(--muted); margin-top: 8px;
+      }
+      .chart-legend i {
+        display: inline-block; width: 18px; height: 0;
+        border-top: 2px solid currentColor; margin-right: 6px;
+        vertical-align: middle;
+      }
+      .chart-legend .goal i { border-top-style: dashed; color: #9a9386; }
+      .cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .stat { margin-top: 0; }
+      .stat .num {
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+        margin: 4px 0 0;
+      }
+      .stat .delta {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 13px;
+        font-weight: 600;
+        margin-top: 6px;
+      }
+      .stat.up .num, .stat.up .delta { color: var(--good); }
+      .stat.down .num, .stat.down .delta { color: var(--danger); }
+      .stat .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+      .section-k {
+        font-size: 12px; font-weight: 600; color: var(--muted);
+        letter-spacing: 0.04em; text-transform: uppercase;
+        margin: 22px 0 0;
+      }
+      .enter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      @media (max-width: 560px) {
+        .cards { grid-template-columns: 1fr; }
+        .enter-row { grid-template-columns: 1fr; }
+      }
     </style>
   </head>
   <body>
     <div class="wrap">
       <span class="pill">maplog · internal</span>
       <h1 id="page-title">Bug reports</h1>
-      <div class="updated" id="page-sub">Sign in to read reports and assign collectables.</div>
+      <div class="updated" id="page-sub">Sign in to read reports, assign collectables, and see metrics.</div>
 
       <form id="login" class="card" autocomplete="username">
         <label for="user">Username</label>
@@ -192,6 +240,7 @@
           <div class="tabs">
             <button class="tab on" type="button" data-tab="bugs">Reports</button>
             <button class="tab" type="button" data-tab="skins">Collectables</button>
+            <button class="tab" type="button" data-tab="metrics">Metrics</button>
           </div>
           <button class="ghost" type="button" id="out">Sign out</button>
         </div>
@@ -202,6 +251,43 @@
         <div id="skins-pane" class="hidden">
           <div class="updated" id="skins-count" style="margin: 16px 0 0"></div>
           <div id="skins" class="skin-grid"></div>
+        </div>
+        <div id="metrics-pane" class="hidden">
+          <div class="updated" id="metrics-sub" style="margin: 16px 0 0"></div>
+          <div class="card chart-card">
+            <div class="k" style="padding: 0 10px">Posted DAU</div>
+            <svg id="dau-chart" viewBox="0 0 640 240" preserveAspectRatio="none"></svg>
+            <div class="chart-legend">
+              <span class="goal"><i></i>goal</span>
+              <span style="color: var(--good)"><i></i>above</span>
+              <span style="color: var(--danger)"><i></i>below</span>
+            </div>
+          </div>
+          <div class="section-k">Today</div>
+          <div class="cards" id="day-cards"></div>
+          <div class="section-k">This month</div>
+          <div class="cards" id="month-cards"></div>
+          <div class="section-k">Enter store / social</div>
+          <form class="card" id="metric-form" style="margin-top: 10px">
+            <div class="enter-row">
+              <div>
+                <label for="metric-kind">Metric</label>
+                <select id="metric-kind">
+                  <option value="downloads">App downloads</option>
+                  <option value="social_views">Social views</option>
+                  <option value="ig_followers">Instagram followers</option>
+                </select>
+              </div>
+              <div>
+                <label for="metric-day">Date</label>
+                <input id="metric-day" type="date" />
+              </div>
+            </div>
+            <label for="metric-value">Number</label>
+            <input id="metric-value" type="number" min="0" step="1" inputmode="numeric" />
+            <p class="err" id="metric-err"></p>
+            <button class="primary" type="submit" id="metric-save">Save</button>
+          </form>
         </div>
       </div>
     </div>
@@ -266,7 +352,7 @@
         $("assign").classList.add("hidden");
         loginErr.textContent = msg || "";
         $("page-title").textContent = "Bug reports";
-        $("page-sub").textContent = "Sign in to read reports and assign collectables.";
+        $("page-sub").textContent = "Sign in to read reports, assign collectables, and see metrics.";
       }
 
       function showApp() {
@@ -314,8 +400,11 @@
         });
         $("bugs-pane").classList.toggle("hidden", tab !== "bugs");
         $("skins-pane").classList.toggle("hidden", tab !== "skins");
-        $("page-title").textContent = tab === "skins" ? "Collectables" : "Bug reports";
+        $("metrics-pane").classList.toggle("hidden", tab !== "metrics");
+        $("page-title").textContent =
+          tab === "skins" ? "Collectables" : tab === "metrics" ? "Metrics" : "Bug reports";
         if (tab === "skins") loadSkins();
+        if (tab === "metrics") loadMetrics();
       }
 
       async function load() {
@@ -472,6 +561,7 @@
         setCreds($("user").value.trim(), $("pass").value);
         await load();
         if (activeTab === "skins") await loadSkins();
+        if (activeTab === "metrics") await loadMetrics();
         btn.disabled = false;
       });
 
@@ -566,6 +656,345 @@
           return;
         }
         await Promise.all([searchPeople(), loadHolders(), loadSkins()]);
+      });
+
+      const GOAL_START = new Date(2026, 8, 1);
+      const GOAL_END = new Date(2026, 11, 31);
+      const ANCHORS = [
+        [new Date(2026, 8, 1), 18],
+        [new Date(2026, 8, 30), 18],
+        [new Date(2026, 9, 31), 35],
+        [new Date(2026, 10, 30), 60],
+        [new Date(2026, 11, 31), 100],
+      ];
+      const MONTH_GOAL = {
+        "2026-09": { posted: 18, activated: 50, downloads: 100, d30: 0.07, ig: 130 },
+        "2026-10": { posted: 35, activated: 100, downloads: 200, d30: 0.08, ig: 163 },
+        "2026-11": { posted: 60, activated: 150, downloads: 300, d30: 0.1, ig: 203 },
+        "2026-12": { posted: 100, activated: 200, downloads: 400, d30: 0.12, ig: 254 },
+      };
+
+      function ymd(d) {
+        const x = d instanceof Date ? d : new Date(d + "T12:00:00");
+        const y = x.getFullYear();
+        const m = String(x.getMonth() + 1).padStart(2, "0");
+        const day = String(x.getDate()).padStart(2, "0");
+        return y + "-" + m + "-" + day;
+      }
+
+      function parseDay(s) {
+        const [y, m, d] = String(s).slice(0, 10).split("-").map(Number);
+        return new Date(y, m - 1, d);
+      }
+
+      function goalAt(d) {
+        const t = d.getTime();
+        if (t <= ANCHORS[0][0].getTime()) return ANCHORS[0][1];
+        for (let i = 1; i < ANCHORS.length; i++) {
+          const a = ANCHORS[i - 1];
+          const b = ANCHORS[i];
+          if (t <= b[0].getTime()) {
+            const span = b[0].getTime() - a[0].getTime();
+            const u = span === 0 ? 1 : (t - a[0].getTime()) / span;
+            return a[1] + (b[1] - a[1]) * u;
+          }
+        }
+        return ANCHORS[ANCHORS.length - 1][1];
+      }
+
+      function monthKey(s) {
+        return String(s).slice(0, 7);
+      }
+
+      function fmtNum(n, digits) {
+        if (n == null || Number.isNaN(n)) return "—";
+        const x = Number(n);
+        if (digits != null) return x.toFixed(digits);
+        return String(Math.round(x));
+      }
+
+      function fmtPct(n) {
+        if (n == null || Number.isNaN(n)) return "—";
+        return (Number(n) * 100).toFixed(0) + "%";
+      }
+
+      function rate(kept, cohort) {
+        if (!cohort) return null;
+        return kept / cohort;
+      }
+
+      function monthSum(manuals, kind, key) {
+        return (manuals || [])
+          .filter((r) => r.kind === kind && monthKey(r.day) === key)
+          .reduce((s, r) => s + Number(r.value || 0), 0);
+      }
+
+      function latestKind(manuals, kind, before) {
+        const rows = (manuals || [])
+          .filter((r) => r.kind === kind && String(r.day).slice(0, 10) <= before)
+          .sort((a, b) => String(a.day).localeCompare(String(b.day)));
+        if (!rows.length) return null;
+        return Number(rows[rows.length - 1].value);
+      }
+
+      function prevMonthKey(key) {
+        const [y, m] = key.split("-").map(Number);
+        const d = new Date(y, m - 2, 1);
+        return ymd(d).slice(0, 7);
+      }
+
+      function cardHtml(title, value, hint, cmp) {
+        let cls = "card stat";
+        let extra = "";
+        if (cmp && cmp.target != null && cmp.actual != null) {
+          const diff = cmp.actual - cmp.target;
+          const met = diff >= 0;
+          cls += met ? " up" : " down";
+          const arrow = met ? "▲" : "▼";
+          const abs = Math.abs(diff);
+          const shown = cmp.pct
+            ? (met ? "+" : "−") + (abs * 100).toFixed(0) + " pp"
+            : (met ? "+" : "−") + fmtNum(abs, cmp.digits);
+          extra = `<div class="delta">${arrow} ${shown} vs ${cmp.pct ? fmtPct(cmp.target) : fmtNum(cmp.target, cmp.digits)}</div>`;
+        }
+        return `<article class="${cls}">
+          <div class="k">${esc(title)}</div>
+          <div class="num">${esc(value)}</div>
+          ${extra}
+          ${hint ? `<div class="hint">${esc(hint)}</div>` : ""}
+        </article>`;
+      }
+
+      function drawDauChart(series, firstData, today) {
+        const svg = $("dau-chart");
+        const W = 640;
+        const H = 240;
+        const pad = { l: 36, r: 12, t: 16, b: 28 };
+        const start = GOAL_START;
+        const end = GOAL_END;
+        const days = [];
+        for (let t = new Date(start); t <= end; t = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1)) {
+          days.push(new Date(t));
+        }
+        const byDay = new Map((series || []).map((r) => [String(r.day).slice(0, 10), r]));
+        const startActual = firstData ? parseDay(firstData) : null;
+
+        const points = days.map((d, i) => {
+          const key = ymd(d);
+          const row = byDay.get(key);
+          const posted = row ? Number(row.posted) || 0 : 0;
+          const has = !!startActual && d >= startActual && d <= parseDay(today);
+          return { d, i, key, posted, goal: goalAt(d), has };
+        });
+
+        const maxY = Math.max(100, ...points.map((p) => p.goal), ...points.filter((p) => p.has).map((p) => p.posted), 1);
+        const x = (i) => pad.l + (i / (days.length - 1)) * (W - pad.l - pad.r);
+        const y = (v) => pad.t + (1 - v / maxY) * (H - pad.t - pad.b);
+
+        let goal = "";
+        points.forEach((p, i) => {
+          goal += (i ? " L " : "M ") + x(p.i).toFixed(1) + " " + y(p.goal).toFixed(1);
+        });
+
+        const actual = points.filter((p) => p.has);
+        let fills = "";
+        let lines = "";
+        for (let i = 0; i < actual.length - 1; i++) {
+          const a = actual[i];
+          const b = actual[i + 1];
+          const segs = splitVsGoal(a, b);
+          segs.forEach((s) => {
+            const above = s.y1 >= s.g1 - 1e-6 && s.y2 >= s.g2 - 1e-6;
+            const color = above ? "var(--good)" : "var(--danger)";
+            const fill = above ? "rgba(47,125,74,0.16)" : "rgba(196,92,74,0.16)";
+            const x1 = x(s.i1);
+            const x2 = x(s.i2);
+            fills += `<polygon fill="${fill}" points="${x1.toFixed(1)},${y(s.g1).toFixed(1)} ${x1.toFixed(1)},${y(s.y1).toFixed(1)} ${x2.toFixed(1)},${y(s.y2).toFixed(1)} ${x2.toFixed(1)},${y(s.g2).toFixed(1)}" />`;
+            lines += `<path d="M ${x1.toFixed(1)} ${y(s.y1).toFixed(1)} L ${x2.toFixed(1)} ${y(s.y2).toFixed(1)}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" />`;
+          });
+        }
+        if (actual.length === 1) {
+          const p = actual[0];
+          const color = p.posted >= p.goal ? "var(--good)" : "var(--danger)";
+          lines += `<circle cx="${x(p.i).toFixed(1)}" cy="${y(p.posted).toFixed(1)}" r="3.5" fill="${color}" />`;
+        }
+
+        const ticks = [0, 18, 35, 60, 100].filter((v) => v <= maxY);
+        const grid = ticks
+          .map((v) => {
+            const yy = y(v).toFixed(1);
+            return `<line x1="${pad.l}" x2="${W - pad.r}" y1="${yy}" y2="${yy}" stroke="#ece7de" /><text x="4" y="${(Number(yy) + 4).toFixed(1)}" fill="#8a8a8a" font-size="10">${v}</text>`;
+          })
+          .join("");
+        const months = [
+          [new Date(2026, 8, 1), "Sep"],
+          [new Date(2026, 9, 1), "Oct"],
+          [new Date(2026, 10, 1), "Nov"],
+          [new Date(2026, 11, 1), "Dec"],
+        ]
+          .map(([d, lab]) => {
+            const i = days.findIndex((x) => ymd(x) === ymd(d));
+            if (i < 0) return "";
+            return `<text x="${x(i).toFixed(1)}" y="${H - 8}" fill="#8a8a8a" font-size="11">${lab}</text>`;
+          })
+          .join("");
+
+        svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+        svg.innerHTML =
+          grid +
+          fills +
+          `<path d="${goal}" fill="none" stroke="#9a9386" stroke-width="1.6" stroke-dasharray="5 4" />` +
+          lines +
+          months;
+      }
+
+      function splitVsGoal(a, b) {
+        const i1 = a.i;
+        const i2 = b.i;
+        const y1 = a.posted;
+        const y2 = b.posted;
+        const g1 = a.goal;
+        const g2 = b.goal;
+        const d1 = y1 - g1;
+        const d2 = y2 - g2;
+        if (d1 === 0 && d2 === 0) {
+          return [{ i1, i2, y1, y2, g1, g2 }];
+        }
+        if (d1 * d2 >= 0) {
+          return [{ i1, i2, y1, y2, g1, g2 }];
+        }
+        const t = d1 / (d1 - d2);
+        const im = i1 + (i2 - i1) * t;
+        const ym = y1 + (y2 - y1) * t;
+        const gm = g1 + (g2 - g1) * t;
+        return [
+          { i1, i2: im, y1, y2: ym, g1, g2: gm },
+          { i1: im, i2, y1: ym, y2, g1: gm, g2 },
+        ];
+      }
+
+      async function loadMetrics() {
+        const { user, pass } = creds();
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Los_Angeles";
+        const { data, error } = await sb.rpc("admin_metrics", {
+          p_user: user,
+          p_pass: pass,
+          p_tz: tz,
+        });
+        if (error) {
+          $("metrics-sub").textContent = "Couldn’t load metrics. Apply migration 054?";
+          $("day-cards").innerHTML = "";
+          $("month-cards").innerHTML = "";
+          return;
+        }
+        const m = data || {};
+        const today = String(m.today).slice(0, 10);
+        $("metrics-sub").textContent =
+          "Live as of " + today + " · posted DAU vs the Sept–Dec ramp · refreshes when you open this tab";
+        if ($("metric-day") && !$("metric-day").value) $("metric-day").value = today;
+
+        drawDauChart(m.series || [], m.first_data, today);
+
+        $("day-cards").innerHTML = [
+          cardHtml("Posted DAU", fmtNum(m.today_posted), "people who posted today"),
+          cardHtml("Opened DAU", fmtNum(m.today_opened), "opened the app"),
+          cardHtml("New activated", fmtNum(m.today_activated), "first shot today"),
+          cardHtml("New friends", fmtNum(m.today_friends), "accepted today"),
+        ].join("");
+
+        const key = monthKey(today);
+        const g = MONTH_GOAL[key] || MONTH_GOAL["2026-09"];
+        const manuals = m.manuals || [];
+        const downloads = monthSum(manuals, "downloads", key);
+        const views = monthSum(manuals, "social_views", key);
+        const prevViews = monthSum(manuals, "social_views", prevMonthKey(key));
+        const ig = latestKind(manuals, "ig_followers", today);
+        const d1 = rate(m.d1_kept, m.d1_cohort);
+        const d7 = rate(m.d7_kept, m.d7_cohort);
+        const d30 = rate(m.d30_kept, m.d30_cohort);
+        const avg = m.month_posted_avg == null ? null : Number(m.month_posted_avg);
+
+        $("month-cards").innerHTML = [
+          cardHtml(
+            "Avg posted DAU",
+            avg == null ? "—" : fmtNum(avg, 1),
+            "vs " + g.posted + " month target",
+            avg == null ? null : { actual: avg, target: g.posted, digits: 1 }
+          ),
+          cardHtml(
+            "New activated",
+            fmtNum(m.month_activated),
+            "first shot this month · target " + g.activated,
+            { actual: Number(m.month_activated) || 0, target: g.activated }
+          ),
+          cardHtml("New friends", fmtNum(m.month_friends), "accepted this month"),
+          cardHtml(
+            "D1 return-to-post",
+            d1 == null ? "—" : fmtPct(d1),
+            m.d1_cohort ? m.d1_kept + " / " + m.d1_cohort + " from yesterday" : "no cohort yet"
+          ),
+          cardHtml(
+            "D7 return-to-post",
+            d7 == null ? "—" : fmtPct(d7),
+            m.d7_cohort ? m.d7_kept + " / " + m.d7_cohort + " from 7 days ago" : "no cohort yet"
+          ),
+          cardHtml(
+            "D30 retention",
+            d30 == null ? "—" : fmtPct(d30),
+            m.d30_cohort ? m.d30_kept + " / " + m.d30_cohort + " · target " + fmtPct(g.d30) : "no cohort yet",
+            d30 == null ? null : { actual: d30, target: g.d30, pct: true }
+          ),
+          cardHtml(
+            "Downloads",
+            downloads ? fmtNum(downloads) : "—",
+            downloads ? "entered this month · target " + g.downloads : "enter below · target " + g.downloads,
+            downloads ? { actual: downloads, target: g.downloads } : null
+          ),
+          cardHtml(
+            "Social views",
+            views ? fmtNum(views) : "—",
+            prevViews
+              ? "vs +30% on last month (" + fmtNum(prevViews * 1.3) + ")"
+              : "enter below · +30% once last month exists",
+            views && prevViews ? { actual: views, target: prevViews * 1.3 } : null
+          ),
+          cardHtml(
+            "IG followers",
+            ig == null ? "—" : fmtNum(ig),
+            ig == null ? "enter below · target " + g.ig : "latest entered · target " + g.ig,
+            ig == null ? null : { actual: ig, target: g.ig }
+          ),
+        ].join("");
+      }
+
+      $("metric-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = $("metric-save");
+        const err = $("metric-err");
+        err.textContent = "";
+        const day = $("metric-day").value;
+        const kind = $("metric-kind").value;
+        const value = Number($("metric-value").value);
+        if (!day || !kind || !Number.isFinite(value) || value < 0) {
+          err.textContent = "Enter a date and a number.";
+          return;
+        }
+        btn.disabled = true;
+        const { user, pass } = creds();
+        const { error } = await sb.rpc("admin_upsert_metric", {
+          p_user: user,
+          p_pass: pass,
+          p_day: day,
+          p_kind: kind,
+          p_value: value,
+        });
+        btn.disabled = false;
+        if (error) {
+          err.textContent = error.message || "Couldn’t save.";
+          return;
+        }
+        $("metric-value").value = "";
+        await loadMetrics();
       });
 
       load();
