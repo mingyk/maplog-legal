@@ -273,9 +273,9 @@
               <div>
                 <label for="metric-kind">Metric</label>
                 <select id="metric-kind">
-                  <option value="downloads">App downloads</option>
+                  <option value="downloads">App downloads (cumulative)</option>
                   <option value="social_views">Social views</option>
-                  <option value="ig_followers">Instagram followers</option>
+                  <option value="ig_followers">Instagram followers (cumulative)</option>
                 </select>
               </div>
               <div>
@@ -285,6 +285,7 @@
             </div>
             <label for="metric-value">Number</label>
             <input id="metric-value" type="number" min="0" step="1" inputmode="numeric" />
+            <p class="meta" style="margin:-6px 0 12px">Downloads and followers are the running total, not new that day.</p>
             <p class="err" id="metric-err"></p>
             <button class="primary" type="submit" id="metric-save">Save</button>
           </form>
@@ -661,14 +662,14 @@
       const GOAL_START = new Date(2026, 8, 1);
       const GOAL_END = new Date(2026, 11, 31);
       const ANCHORS = [
-        [new Date(2026, 8, 1), 18],
-        [new Date(2026, 8, 30), 18],
+        [new Date(2026, 8, 1), 10],
+        [new Date(2026, 8, 30), 10],
         [new Date(2026, 9, 31), 35],
         [new Date(2026, 10, 30), 60],
         [new Date(2026, 11, 31), 100],
       ];
       const MONTH_GOAL = {
-        "2026-09": { posted: 18, activated: 50, downloads: 100, d30: 0.07, ig: 130 },
+        "2026-09": { posted: 10, activated: 50, downloads: 100, d30: 0.07, ig: 130 },
         "2026-10": { posted: 35, activated: 100, downloads: 200, d30: 0.08, ig: 163 },
         "2026-11": { posted: 60, activated: 150, downloads: 300, d30: 0.1, ig: 203 },
         "2026-12": { posted: 100, activated: 200, downloads: 400, d30: 0.12, ig: 254 },
@@ -819,7 +820,7 @@
           lines += `<circle cx="${x(p.i).toFixed(1)}" cy="${y(p.posted).toFixed(1)}" r="3.5" fill="${color}" />`;
         }
 
-        const ticks = [0, 18, 35, 60, 100].filter((v) => v <= maxY);
+        const ticks = [0, 10, 35, 60, 100].filter((v) => v <= maxY);
         const grid = ticks
           .map((v) => {
             const yy = y(v).toFixed(1);
@@ -905,7 +906,8 @@
         const key = monthKey(today);
         const g = MONTH_GOAL[key] || MONTH_GOAL["2026-09"];
         const manuals = m.manuals || [];
-        const downloads = monthSum(manuals, "downloads", key);
+        const downloads = latestKind(manuals, "downloads", today);
+        const prevDownloads = latestKind(manuals, "downloads", ymd(new Date(parseDay(today).getFullYear(), parseDay(today).getMonth(), 0)));
         const views = monthSum(manuals, "social_views", key);
         const prevViews = monthSum(manuals, "social_views", prevMonthKey(key));
         const ig = latestKind(manuals, "ig_followers", today);
@@ -946,9 +948,15 @@
           ),
           cardHtml(
             "Downloads",
-            downloads ? fmtNum(downloads) : "—",
-            downloads ? "entered this month · target " + g.downloads : "enter below · target " + g.downloads,
-            downloads ? { actual: downloads, target: g.downloads } : null
+            downloads == null ? "—" : fmtNum(downloads),
+            downloads == null
+              ? "cumulative · enter below"
+              : prevDownloads != null
+                ? "cumulative · +" + fmtNum(Math.max(0, downloads - prevDownloads)) + " this month vs +" + g.downloads
+                : "cumulative · enter last month to score vs +" + g.downloads,
+            downloads != null && prevDownloads != null
+              ? { actual: Math.max(0, downloads - prevDownloads), target: g.downloads }
+              : null
           ),
           cardHtml(
             "Social views",
@@ -961,7 +969,7 @@
           cardHtml(
             "IG followers",
             ig == null ? "—" : fmtNum(ig),
-            ig == null ? "enter below · target " + g.ig : "latest entered · target " + g.ig,
+            ig == null ? "cumulative · enter below · target " + g.ig : "cumulative · target " + g.ig,
             ig == null ? null : { actual: ig, target: g.ig }
           ),
         ].join("");
