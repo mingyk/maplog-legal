@@ -666,15 +666,15 @@
       const ANCHORS = [
         [new Date(2026, 8, 1), 10],
         [new Date(2026, 8, 30), 10],
-        [new Date(2026, 9, 31), 35],
-        [new Date(2026, 10, 30), 60],
+        [new Date(2026, 9, 31), 25],
+        [new Date(2026, 10, 30), 55],
         [new Date(2026, 11, 31), 100],
       ];
       const MONTH_GOAL = {
         "2026-09": { posted: 10, mau: 25, activated: 15, downloads: 44, d30: 0.07 },
-        "2026-10": { posted: 35, mau: 175, activated: 160, downloads: 600, d30: 0.08 },
-        "2026-11": { posted: 60, mau: 300, activated: 130, downloads: 1000, d30: 0.1 },
-        "2026-12": { posted: 100, mau: 500, activated: 210, downloads: 1700, d30: 0.12 },
+        "2026-10": { posted: 25, mau: 135, activated: 120, downloads: 450, d30: 0.08 },
+        "2026-11": { posted: 55, mau: 285, activated: 150, downloads: 950, d30: 0.1 },
+        "2026-12": { posted: 100, mau: 500, activated: 225, downloads: 1700, d30: 0.12 },
       };
       const IG_MOM = 1.25;
 
@@ -833,7 +833,7 @@
           lines += `<circle cx="${x(p.i).toFixed(1)}" cy="${y(p.posted).toFixed(1)}" r="3.5" fill="${color}" />`;
         }
 
-        const ticks = [0, 10, 35, 60, 100].filter((v) => v <= maxY);
+        const ticks = [0, 10, 25, 55, 100].filter((v) => v <= maxY);
         const grid = ticks
           .map((v) => {
             const yy = y(v).toFixed(1);
