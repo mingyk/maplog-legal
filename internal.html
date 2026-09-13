@@ -277,7 +277,7 @@
             </div>
             <label for="metric-value">Number</label>
             <input id="metric-value" type="number" min="0" step="1" inputmode="numeric" />
-            <p class="meta" style="margin:-6px 0 12px">Downloads and followers are the running total, not new that day.</p>
+            <p class="meta" style="margin:-6px 0 12px">Downloads and followers are the running total. Download targets follow the 100 DAU ladder, not +25%.</p>
             <p class="err" id="metric-err"></p>
             <button class="primary" type="submit" id="metric-save">Save</button>
           </form>
@@ -671,10 +671,10 @@
         [new Date(2026, 11, 31), 100],
       ];
       const MONTH_GOAL = {
-        "2026-09": { posted: 10, activated: 50, downloads: 100, d30: 0.07 },
-        "2026-10": { posted: 35, activated: 100, downloads: 200, d30: 0.08 },
-        "2026-11": { posted: 60, activated: 150, downloads: 300, d30: 0.1 },
-        "2026-12": { posted: 100, activated: 200, downloads: 400, d30: 0.12 },
+        "2026-09": { posted: 10, activated: 20, downloads: 44, d30: 0.07 },
+        "2026-10": { posted: 35, activated: 55, downloads: 155, d30: 0.08 },
+        "2026-11": { posted: 60, activated: 55, downloads: 265, d30: 0.1 },
+        "2026-12": { posted: 100, activated: 88, downloads: 440, d30: 0.12 },
       };
       const IG_MOM = 1.25;
 
@@ -750,6 +750,11 @@
       function nextMonthLabel(key) {
         const [y, m] = key.split("-").map(Number);
         return new Date(y, m, 1).toLocaleString("en", { month: "short" });
+      }
+
+      function nextMonthGoal(key) {
+        const [y, m] = key.split("-").map(Number);
+        return MONTH_GOAL[ymd(new Date(y, m, 1)).slice(0, 7)] || null;
       }
 
       function cardHtml(title, value, hint, cmp) {
@@ -899,7 +904,7 @@
         const m = data || {};
         const today = String(m.today).slice(0, 10);
         $("metrics-sub").textContent =
-          "Live as of " + today + " · posted DAU vs the Sept–Dec ramp · refreshes when you open this tab";
+          "Live as of " + today + " · 100 DAU needs ~440 downloads by Dec (today’s 10 / 44 rate) · refreshes when you open this tab";
         if ($("metric-day") && !$("metric-day").value) $("metric-day").value = today;
 
         drawDauChart(m.series || [], m.first_data, today);
@@ -912,9 +917,10 @@
 
         const key = monthKey(today);
         const g = MONTH_GOAL[key] || MONTH_GOAL["2026-09"];
+        const nextG = nextMonthGoal(key);
+        const dlBaseline = key === "2026-09";
         const manuals = m.manuals || [];
         const downloads = latestKind(manuals, "downloads", today);
-        const prevDownloads = latestKind(manuals, "downloads", ymd(new Date(parseDay(today).getFullYear(), parseDay(today).getMonth(), 0)));
         const views = monthSum(manuals, "social_views", key);
         const prevViews = monthSum(manuals, "social_views", prevMonthKey(key));
         const ig = latestKind(manuals, "ig_followers", today);
@@ -962,13 +968,14 @@
             "Downloads",
             downloads == null ? "—" : fmtNum(downloads),
             downloads == null
-              ? "cumulative · enter below · next month +" + Math.round((IG_MOM - 1) * 100) + "%"
-              : prevDownloads != null
-                ? "cumulative · target " + fmtNum(prevDownloads * IG_MOM) + " (+" + Math.round((IG_MOM - 1) * 100) + "% MoM)"
-                : "baseline this month · " + nextMonthLabel(key) + " target " + fmtNum(downloads * IG_MOM) + " (+" + Math.round((IG_MOM - 1) * 100) + "%)",
-            downloads != null && prevDownloads != null
-              ? { actual: downloads, target: prevDownloads * IG_MOM }
-              : null
+              ? "cumulative · enter below · " +
+                (nextG
+                  ? nextMonthLabel(key) + " target " + nextG.downloads
+                  : "target " + g.downloads)
+              : dlBaseline && nextG
+                ? "baseline this month · " + nextMonthLabel(key) + " target " + nextG.downloads
+                : "cumulative · target " + g.downloads + " for " + g.posted + " DAU",
+            downloads != null && !dlBaseline ? { actual: downloads, target: g.downloads } : null
           ),
           cardHtml(
             "Social views",
