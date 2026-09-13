@@ -901,7 +901,6 @@
           cardHtml("Posted DAU", fmtNum(m.today_posted), "people who posted today"),
           cardHtml("Opened DAU", fmtNum(m.today_opened), "opened the app"),
           cardHtml("New activated", fmtNum(m.today_activated), "first shot today"),
-          cardHtml("New friends", fmtNum(m.today_friends), "accepted today"),
         ].join("");
 
         const key = monthKey(today);
@@ -936,7 +935,6 @@
             "first shot this month · target " + g.activated,
             { actual: Number(m.month_activated) || 0, target: g.activated }
           ),
-          cardHtml("New friends", fmtNum(m.month_friends), "accepted this month"),
           cardHtml(
             "D1 return-to-post",
             d1 == null ? "—" : fmtPct(d1),
@@ -982,7 +980,6 @@
                 ? "cumulative · target " + fmtNum(igTarget) + " (+" + Math.round((IG_MOM - 1) * 100) + "% MoM)"
                 : "baseline this month · Oct target " + fmtNum(ig * IG_MOM) + " (+" + Math.round((IG_MOM - 1) * 100) + "%)",
             ig != null && igTarget != null ? { actual: ig, target: igTarget } : null
-          ),
           ),
         ].join("");
       }
