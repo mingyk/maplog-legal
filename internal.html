@@ -277,7 +277,7 @@
             </div>
             <label for="metric-value">Number</label>
             <input id="metric-value" type="number" min="0" step="1" inputmode="numeric" />
-            <p class="meta" style="margin:-6px 0 12px">Downloads and followers are the running total. Download targets follow the 100 DAU ladder, not +25%.</p>
+            <p class="meta" style="margin:-6px 0 12px">Downloads and followers are the running total. Download targets assume ~30% of DLs are MAU and ~20% of MAU post that day.</p>
             <p class="err" id="metric-err"></p>
             <button class="primary" type="submit" id="metric-save">Save</button>
           </form>
@@ -671,10 +671,10 @@
         [new Date(2026, 11, 31), 100],
       ];
       const MONTH_GOAL = {
-        "2026-09": { posted: 10, activated: 20, downloads: 44, d30: 0.07 },
-        "2026-10": { posted: 35, activated: 55, downloads: 155, d30: 0.08 },
-        "2026-11": { posted: 60, activated: 55, downloads: 265, d30: 0.1 },
-        "2026-12": { posted: 100, activated: 88, downloads: 440, d30: 0.12 },
+        "2026-09": { posted: 10, mau: 25, activated: 15, downloads: 44, d30: 0.07 },
+        "2026-10": { posted: 35, mau: 175, activated: 160, downloads: 600, d30: 0.08 },
+        "2026-11": { posted: 60, mau: 300, activated: 130, downloads: 1000, d30: 0.1 },
+        "2026-12": { posted: 100, mau: 500, activated: 210, downloads: 1700, d30: 0.12 },
       };
       const IG_MOM = 1.25;
 
@@ -904,7 +904,7 @@
         const m = data || {};
         const today = String(m.today).slice(0, 10);
         $("metrics-sub").textContent =
-          "Live as of " + today + " · 100 DAU needs ~440 downloads by Dec (today’s 10 / 44 rate) · refreshes when you open this tab";
+          "Live as of " + today + " · 100 DAU needs ~500 MAU and ~1,700 downloads (1 in 3 DLs stay MAU, 1 in 5 MAU post) · refreshes when you open this tab";
         if ($("metric-day") && !$("metric-day").value) $("metric-day").value = today;
 
         drawDauChart(m.series || [], m.first_data, today);
@@ -941,6 +941,14 @@
             avg == null ? "—" : fmtNum(avg, 1),
             "vs " + g.posted + " month target",
             avg == null ? null : { actual: avg, target: g.posted, digits: 1 }
+          ),
+          cardHtml(
+            "MAU",
+            m.month_mau == null ? "—" : fmtNum(m.month_mau),
+            dlBaseline && nextG
+              ? "opened in last 30 days · " + nextMonthLabel(key) + " target " + nextG.mau
+              : "opened in last 30 days · target " + g.mau,
+            !dlBaseline && m.month_mau != null ? { actual: Number(m.month_mau) || 0, target: g.mau } : null
           ),
           cardHtml(
             "New activated",
