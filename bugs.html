@@ -226,7 +226,7 @@
       <h1 id="page-title">Bug reports</h1>
       <div class="updated" id="page-sub">Sign in to read reports, assign collectables, and see metrics.</div>
 
-      <form id="login" class="card" autocomplete="username">
+      <form id="login" class="card" method="post" action="#" autocomplete="username">
         <label for="user">Username</label>
         <input id="user" name="username" type="text" autocomplete="username" />
         <label for="pass">Password</label>
@@ -320,6 +320,9 @@
       const KEY_P = "maplog.bugs.pass";
 
       const $ = (id) => document.getElementById(id);
+      if (location.search) {
+        history.replaceState({}, "", location.pathname + location.hash);
+      }
       const login = $("login");
       const app = $("app");
       const list = $("list");
