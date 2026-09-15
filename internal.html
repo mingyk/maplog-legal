@@ -115,11 +115,13 @@
         font-size: 14px;
       }
       .tab.on { background: var(--accent); color: #fff; border-color: var(--accent); }
-      .skin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+      .skin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
       @media (max-width: 560px) { .skin-grid { grid-template-columns: 1fr; } }
+      .pack-block { margin-top: 22px; }
+      .pack-block:first-child { margin-top: 12px; }
       .skin-card { cursor: pointer; transition: border-color 0.15s ease; }
       .skin-card:hover { border-color: #c9a227; }
-      .skin-card.pack { grid-column: 1 / -1; }
+      .skin-card.pack { margin-bottom: 10px; }
       .skin-card .preview { margin: 12px 0 4px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
       .pack-tag {
         display: inline-block;
@@ -219,13 +221,13 @@
       }
       .handle-icon {
         display: inline-flex;
-        align-items: center;
-        gap: 4px;
+        align-items: flex-start;
+        gap: 2px;
         font-weight: 700;
         font-size: 15px;
         line-height: 16px;
       }
-      .handle-icon svg { display: block; }
+      .handle-icon svg { display: block; margin-top: 1px; }
       .overlay {
         position: fixed;
         inset: 0;
@@ -375,7 +377,7 @@
         </div>
         <div id="skins-pane" class="hidden">
           <div class="updated" id="skins-count" style="margin: 16px 0 0"></div>
-          <div id="skins" class="skin-grid"></div>
+          <div id="skins"></div>
         </div>
       </div>
     </div>
@@ -387,6 +389,7 @@
           <button class="ghost" type="button" id="assign-close">Close</button>
         </div>
         <div class="preview" id="assign-preview"></div>
+        <p class="meta" id="assign-note" style="margin: 0 0 12px"></p>
         <label for="assign-q">Search handle</label>
         <input id="assign-q" type="search" placeholder="@handle" autocomplete="off" />
         <div id="assign-results"></div>
@@ -497,7 +500,7 @@
           theme === "gold"
             ? `<stop offset="0%" stop-color="#7A5410"/><stop offset="38%" stop-color="#C9A227"/><stop offset="47%" stop-color="#C9A227"/><stop offset="50%" stop-color="#F0DC96"/><stop offset="53%" stop-color="#C9A227"/><stop offset="100%" stop-color="#7A5410"/>`
             : `<stop offset="0%" stop-color="#5C6670"/><stop offset="38%" stop-color="#A8B2BC"/><stop offset="47%" stop-color="#A8B2BC"/><stop offset="50%" stop-color="#DEE4E9"/><stop offset="53%" stop-color="#A8B2BC"/><stop offset="100%" stop-color="#5C6670"/>`;
-        return `<svg width="14" height="17" viewBox="-7 -8.5 14 17" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0">${stops}<animate attributeName="x1" values="0;-1" dur="2.2s" repeatCount="indefinite"/><animate attributeName="x2" values="1;0" dur="2.2s" repeatCount="indefinite"/></linearGradient></defs><path d="M0,-7.2 L1.05,-1.05 L4.6,0 L1.05,1.05 L0,7.2 L-1.05,1.05 L-4.6,0 L-1.05,-1.05 Z" fill="url(#${id})"/></svg>`;
+        return `<svg width="9.2" height="14.4" viewBox="-4.6 -7.2 9.2 14.4" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0">${stops}<animate attributeName="x1" values="0;-1" dur="2.2s" repeatCount="indefinite"/><animate attributeName="x2" values="1;0" dur="2.2s" repeatCount="indefinite"/></linearGradient></defs><path d="M0,-7.2 L1.05,-1.05 L4.6,0 L1.05,1.05 L0,7.2 L-1.05,1.05 L-4.6,0 L-1.05,-1.05 Z" fill="url(#${id})"/></svg>`;
       }
 
       const MAPLOG_MARK = `<svg width="12" height="12" viewBox="0 0 22 22" aria-hidden="true"><circle cx="9.2" cy="7.2" r="4.1" fill="#3C4453"/><path d="M2.2 14.2 C6.2 19.6, 16.4 19.2, 20.6 6.4" fill="none" stroke="#9A8E84" stroke-width="2.7" stroke-linecap="round"/></svg>`;
@@ -589,6 +592,20 @@
         setTab(activeTab);
       }
 
+      function skinCard(r) {
+        const n = Number(r.holders) || 0;
+        const pack = r.kind === "pack" || PACKS[r.slug];
+        const people = n === 1 ? "1 person" : n + " people";
+        const meta = pack
+          ? people + " with every item · give all, or take all back even if they only have some"
+          : people;
+        return `<article class="card skin-card${pack ? " pack" : ""}" data-slug="${esc(r.slug)}" data-name="${esc(r.name)}">
+              <div class="k" style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase">${esc(r.name)}${pack ? '<span class="pack-tag">PACK</span>' : ""}</div>
+              <div class="preview">${previewFor(r.slug, "handle")}</div>
+              <div class="meta" style="margin:0">${meta}</div>
+            </article>`;
+      }
+
       async function loadSkins() {
         const { user, pass } = creds();
         const { data, error } = await sb.rpc("admin_list_collectables", {
@@ -600,23 +617,43 @@
           return;
         }
         const rows = data || [];
+        const packs = rows.filter((r) => r.kind === "pack" || PACKS[r.slug]);
+        const skins = rows.filter((r) => !(r.kind === "pack" || PACKS[r.slug]));
         $("skins-count").textContent =
-          rows.length === 1 ? "1 collectable" : rows.length + " collectables";
+          packs.length + " pack" + (packs.length === 1 ? "" : "s") + " · " +
+          skins.length + " item" + (skins.length === 1 ? "" : "s");
         if (!rows.length) {
           skinsEl.innerHTML = '<p class="empty">No collectables yet.</p>';
           return;
         }
-        skinsEl.innerHTML = rows
-          .map((r) => {
-            const n = Number(r.holders) || 0;
-            const pack = r.kind === "pack" || PACKS[r.slug];
-            return `<article class="card skin-card${pack ? " pack" : ""}" data-slug="${esc(r.slug)}" data-name="${esc(r.name)}">
-              <div class="k" style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase">${esc(r.name)}${pack ? '<span class="pack-tag">PACK</span>' : ""}</div>
-              <div class="preview">${previewFor(r.slug, "handle")}</div>
-              <div class="meta" style="margin:0">${n === 1 ? "1 person" : n + " people"}</div>
-            </article>`;
-          })
-          .join("");
+        const bySlug = {};
+        rows.forEach((r) => {
+          bySlug[r.slug] = r;
+        });
+        const used = {};
+        const packOrder = ["gold-pack", "silver-pack", "pink-pack", "pixel-pack"];
+        let html = "";
+        packOrder.forEach((slug) => {
+          const pack = bySlug[slug];
+          if (!pack) return;
+          used[slug] = true;
+          const members = PACKS[slug] || [];
+          html += `<section class="pack-block">${skinCard(pack)}<div class="skin-grid">`;
+          members.forEach((s) => {
+            used[s] = true;
+            if (bySlug[s]) html += skinCard(bySlug[s]);
+          });
+          html += `</div></section>`;
+        });
+        const rest = rows.filter((r) => !used[r.slug]);
+        if (rest.length) {
+          html += `<section class="pack-block"><div class="k" style="margin-bottom:8px">Other</div><div class="skin-grid">`;
+          rest.forEach((r) => {
+            html += skinCard(r);
+          });
+          html += `</div></section>`;
+        }
+        skinsEl.innerHTML = html;
       }
 
       async function loadHolders() {
@@ -686,6 +723,15 @@
         activeSlug = slug;
         $("assign-title").textContent = name;
         $("assign-preview").innerHTML = previewFor(slug, "handle");
+        const note = $("assign-note");
+        if (PACKS[slug]) {
+          note.style.display = "";
+          note.textContent =
+            "Give unlocks every item in this pack. Remove takes all of them back, even if they only have some.";
+        } else {
+          note.style.display = "none";
+          note.textContent = "";
+        }
         $("assign-q").value = "";
         $("assign-results").innerHTML = "";
         $("assign").classList.remove("hidden");
