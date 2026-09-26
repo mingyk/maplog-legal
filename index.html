@@ -65,11 +65,11 @@
 
       <p>
         maplog ("we", "us", "the app") is a private, friends-only map you share with
-        people you add. Photos you take are placed on a map at the spot where you took
-        them and connected into the path of your day. This policy explains what
-        information the app collects, how it is used, and the choices you have. By using
-        maplog you agree to the practices described here and in our in-app Terms &amp;
-        Conditions.
+        people you add. Photos and short videos you take are placed on a map at the spot
+        where you took them and connected into the path of your day. This policy explains
+        what information the app collects, how it is used, and the choices you have. By
+        using maplog you agree to the practices described here and in our in-app
+        Terms &amp; Conditions.
       </p>
 
       <h2>Information We Collect</h2>
@@ -77,8 +77,11 @@
         <li>
           <strong>Location data.</strong> maplog uses your device location to place a
           photo on the map at the spot where you took it and to connect your photos into
-          the path of your day. Location is only read while you are using the app —
-          <strong>there is no background tracking</strong>.
+          the path of your day. That read happens while you are using the app. If you
+          turn on new place alerts, maplog also uses iOS visit detection to notice when
+          you arrive somewhere new, only so it can nudge you to post. The places it has
+          seen are kept on your phone, are never sent to maplog, and are forgotten after
+          60 days. It does not record a trail of where you go.
         </li>
         <li>
           <strong>Account information.</strong> When you sign in with Apple, we receive a
@@ -86,11 +89,21 @@
           This is used to create and secure your account.
         </li>
         <li>
-          <strong>Content you create.</strong> The photos, captions, tags, and comments
+          <strong>Content you create.</strong> The photos, short videos, captions, tags, and comments
           you post, along with the map locations they are placed at, are stored so your
           friends can see them. Your friends only ever see the current day; older days
           remain visible only to you as a private, read-only archive for up to 7 days,
-          after which they are permanently deleted.
+          after which they are permanently deleted. A video clip itself is kept only for
+          the live day it was posted; after that the still frame stays in the archive
+          until the normal deletion window, and the video file is removed.
+        </li>
+        <li>
+          <strong>Audio.</strong> If you hold the shutter to record a short video (up to
+          5 seconds), maplog uses the microphone so the clip can include sound. That
+          audio is part of the video file you post. It is shown only to your friends,
+          is not used for advertising or transcription, and is deleted with the video
+          at the end of that live day. You can deny microphone access in your device
+          Settings; you can still post photos.
         </li>
         <li>
           <strong>Notification token.</strong> If you enable push notifications, we store
@@ -139,8 +152,9 @@
       </p>
       <ul>
         <li>
-          <strong>Supabase</strong> — hosting, database, authentication, and photo storage.
-          This is where your account and content are securely stored.
+          <strong>Supabase</strong> — hosting, database, authentication, and media storage.
+          This is where your account and content (including photos and short videos) are
+          securely stored.
         </li>
         <li>
           <strong>Expo</strong> — delivers app updates and, if you enable them, push
@@ -174,8 +188,9 @@
           Profile &rarr; Settings &rarr; Delete account.
         </li>
         <li>
-          You can revoke location or photo access at any time in your device's Settings.
-          Note that core features will not work without location.
+          You can revoke location, photo, camera, or microphone access at any time in
+          your device's Settings. Core features will not work without location.
+          Microphone is only needed for video.
         </li>
         <li>You can request access to your data via the contact below.</li>
       </ul>
