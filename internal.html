@@ -321,6 +321,14 @@
       .num.dead { color: var(--muted); }
       .small { font-size: 13px; padding: 6px 14px; }
       .remove { background: transparent; color: var(--danger); font-size: 13px; padding: 6px 4px; }
+      .tbl-wrap { overflow-x: auto; padding: 8px 12px; margin-top: 10px; }
+      .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+      .tbl th { text-align: left; font-weight: 600; color: var(--muted); padding: 8px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+      .tbl td { padding: 8px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+      .tbl tr:last-child td { border-bottom: 0; }
+      .tbl td.n { text-align: right; font-variant-numeric: tabular-nums; }
+      .tbl td.bad { color: var(--danger); font-weight: 600; }
+      .tbl .dim { color: var(--muted); }
       @media (max-width: 560px) {
         .cards { grid-template-columns: 1fr; }
         .enter-row { grid-template-columns: 1fr; }
@@ -349,6 +357,7 @@
             <button class="tab" type="button" data-tab="bugs">Reports</button>
             <button class="tab" type="button" data-tab="skins">Collectables</button>
             <button class="tab" type="button" data-tab="streaks">Streaks</button>
+            <button class="tab" type="button" data-tab="health">Health</button>
             <button class="tab admin-only" type="button" data-tab="logins">Logins</button>
           </div>
           <button class="ghost" type="button" id="out">Sign out</button>
@@ -407,6 +416,25 @@
             <input id="streak-q" type="search" placeholder="Search @handle or name" autocomplete="off" />
             <div id="streaks"></div>
           </div>
+        </div>
+        <div id="health-pane" class="hidden">
+          <div class="updated" style="margin: 16px 0 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+            <span id="health-sub">Freezes, slow sign-ins and timeouts the app logs on its own.</span>
+            <select id="health-days" style="width: auto; margin: 0; padding: 6px 10px; font-size: 13px">
+              <option value="1">Last 24 hours</option>
+              <option value="7" selected>Last 7 days</option>
+              <option value="30">Last 30 days</option>
+            </select>
+          </div>
+          <div class="cards" id="health-cards"></div>
+          <div class="section-k">By day</div>
+          <div class="card tbl-wrap" id="health-daily"></div>
+          <div class="section-k">Freezes by screen</div>
+          <div class="card tbl-wrap" id="health-screens"></div>
+          <div class="section-k">By phone</div>
+          <div class="card tbl-wrap" id="health-devices"></div>
+          <div class="section-k">Recent</div>
+          <div class="card tbl-wrap" id="health-recent"></div>
         </div>
         <div id="logins-pane" class="hidden">
           <div class="updated" style="margin: 16px 0 0">
@@ -605,16 +633,91 @@
         $("metrics-pane").classList.toggle("hidden", tab !== "metrics");
         $("streaks-pane").classList.toggle("hidden", tab !== "streaks");
         $("logins-pane").classList.toggle("hidden", tab !== "logins");
+        $("health-pane").classList.toggle("hidden", tab !== "health");
         $("page-title").textContent = {
           skins: "Collectables",
           metrics: "Metrics",
           streaks: "Streaks",
+          health: "Health",
           logins: "Logins",
         }[tab] || "Bug reports";
         if (tab === "skins") loadSkins();
         if (tab === "metrics") loadMetrics();
         if (tab === "streaks") loadStreaks();
+        if (tab === "health") loadHealth();
         if (tab === "logins") loadAccounts();
+      }
+
+      function table(head, rows, empty) {
+        if (!rows.length) return `<p class="empty">${esc(empty)}</p>`;
+        return `<table class="tbl"><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>`;
+      }
+      const td = (v, cls) => `<td class="${cls || ""}">${esc(v ?? "—")}</td>`;
+      const tdn = (v, warnAt) => td(v ?? 0, "n" + (warnAt != null && Number(v) >= warnAt ? " bad" : ""));
+      const secs = (ms) => (ms == null ? "—" : (Number(ms) / 1000).toFixed(1) + "s");
+
+      const EVENT_LABEL = {
+        js_stall: "Freeze",
+        ui_crash: "Crash",
+        fetch_timeout: "Request timed out",
+        auth_refresh: "Sign-in refresh",
+        auth_profile_hang: "Profile load hung",
+        auth_profile_error: "Profile load error",
+      };
+
+      function eventNote(r) {
+        const d = r.detail || {};
+        if (r.event === "js_stall") return secs(d.ms) + " on " + (d.screen || "?");
+        if (r.event === "auth_refresh") return (d.ok ? "slow, " : "failed, ") + secs(d.ms) + (d.status ? " · " + d.status : "");
+        if (r.event === "fetch_timeout") return d.path || "";
+        if (r.event === "ui_crash") return String(d.msg || "").slice(0, 120);
+        return String(d.msg || d.code || d.err || "").slice(0, 120);
+      }
+
+      async function loadHealth() {
+        const { user, pass } = creds();
+        const days = Number($("health-days").value) || 7;
+        const { data, error } = await sb.rpc("admin_app_health", { p_user: user, p_pass: pass, p_days: days });
+        if (error || !data) {
+          $("health-cards").innerHTML = `<p class="empty">${esc(why(error))}</p>`;
+          return;
+        }
+        const t = data.totals || {};
+        const card = (k, v, hint, bad) =>
+          `<div class="card stat${bad ? " down" : ""}"><div class="k">${esc(k)}</div><div class="num">${esc(v)}</div><div class="hint">${esc(hint)}</div></div>`;
+        $("health-cards").innerHTML = [
+          card("Freezes", t.stalls || 0, (t.stall_users || 0) + " people · app stuck 1s+", t.stalls > 0),
+          card("Crashes", t.crashes || 0, "screens that hit the error page", t.crashes > 0),
+          card("Sign-in refreshes", t.refreshes || 0,
+            (t.refresh_failed || 0) + " failed · " + (t.refresh_slow || 0) + " slow · median " + secs(t.refresh_p50) + " · p90 " + secs(t.refresh_p90),
+            (t.refresh_failed || 0) + (t.refresh_slow || 0) > 0),
+          card("Request timeouts", t.timeouts || 0, (t.launches || 0) + " launches · " + (t.users || 0) + " people"),
+        ].join("");
+
+        $("health-daily").innerHTML = table(
+          ["Day", "Launches", "Freezes", "Crashes", "Timeouts", "Bad sign-ins"],
+          (data.daily || []).map((d) =>
+            `<tr>${td(d.day)}${tdn(d.launches)}${tdn(d.stalls, 1)}${tdn(d.crashes, 1)}${tdn(d.timeouts)}${tdn(d.bad_refreshes, 1)}</tr>`),
+          "No logs yet."
+        );
+        $("health-screens").innerHTML = table(
+          ["Screen", "Freezes", "People", "Typical", "Longest"],
+          (data.screens || []).map((s) =>
+            `<tr>${td(s.screen)}${tdn(s.stalls)}${tdn(s.users)}${td(secs(s.p50_ms), "n")}${td(secs(s.max_ms), "n")}</tr>`),
+          "No freezes recorded."
+        );
+        $("health-devices").innerHTML = table(
+          ["Phone", "iOS", "Launches", "People", "Freezes", "Timeouts"],
+          (data.devices || []).map((d) =>
+            `<tr>${td(d.model === "unknown" ? "not reported yet" : d.model, d.model === "unknown" ? "dim" : "")}${td(d.os === "unknown" ? "—" : d.os)}${tdn(d.launches)}${tdn(d.users)}${tdn(d.stalls, 1)}${tdn(d.timeouts)}</tr>`),
+          "No launches yet."
+        );
+        $("health-recent").innerHTML = table(
+          ["When", "Who", "What", "Detail", "Phone"],
+          (data.recent || []).map((r) =>
+            `<tr>${td(when(r.at))}${td(r.handle ? "@" + r.handle : "signed out")}${td(EVENT_LABEL[r.event] || r.event)}${td(eventNote(r), "dim")}${td(r.model ? r.model + (r.os && r.os !== "unknown" ? " · " + r.os : "") : "—", "dim")}</tr>`),
+          "Nothing notable."
+        );
       }
 
       const ERRORS = {
@@ -905,6 +1008,7 @@
         showLogin();
       });
 
+      $("health-days").addEventListener("change", loadHealth);
       document.querySelectorAll(".tab").forEach((b) => {
         b.addEventListener("click", () => setTab(b.getAttribute("data-tab")));
       });
