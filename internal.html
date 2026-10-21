@@ -303,6 +303,24 @@
         margin: 22px 0 0;
       }
       .enter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .viewer [data-resolve], .viewer [data-grant], .viewer [data-revoke],
+      .viewer #metric-form, .viewer .admin-only { display: none !important; }
+      .tabs { flex-wrap: wrap; }
+      .line {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        padding: 12px 0; border-top: 1px solid var(--border);
+      }
+      .line:first-child { border-top: 0; }
+      .line .who { flex: 1; min-width: 160px; }
+      .line .who b { display: block; font-weight: 600; }
+      .line .who span { color: var(--muted); font-size: 13px; }
+      .line input, .line select { width: auto; margin: 0; padding: 8px 10px; font-size: 14px; }
+      .line input[type="number"] { width: 84px; }
+      .line input[type="password"] { width: 150px; }
+      .num { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; min-width: 44px; text-align: right; }
+      .num.dead { color: var(--muted); }
+      .small { font-size: 13px; padding: 6px 14px; }
+      .remove { background: transparent; color: var(--danger); font-size: 13px; padding: 6px 4px; }
       @media (max-width: 560px) {
         .cards { grid-template-columns: 1fr; }
         .enter-row { grid-template-columns: 1fr; }
@@ -330,6 +348,8 @@
             <button class="tab on" type="button" data-tab="metrics">Metrics</button>
             <button class="tab" type="button" data-tab="bugs">Reports</button>
             <button class="tab" type="button" data-tab="skins">Collectables</button>
+            <button class="tab" type="button" data-tab="streaks">Streaks</button>
+            <button class="tab admin-only" type="button" data-tab="logins">Logins</button>
           </div>
           <button class="ghost" type="button" id="out">Sign out</button>
         </div>
@@ -378,6 +398,41 @@
         <div id="skins-pane" class="hidden">
           <div class="updated" id="skins-count" style="margin: 16px 0 0"></div>
           <div id="skins"></div>
+        </div>
+        <div id="streaks-pane" class="hidden">
+          <div class="updated" style="margin: 16px 0 0">
+            Setting a streak counts as posting today, so it shows right away and their next post tomorrow adds 1. 0 clears it.
+          </div>
+          <div class="card">
+            <input id="streak-q" type="search" placeholder="Search @handle or name" autocomplete="off" />
+            <div id="streaks"></div>
+          </div>
+        </div>
+        <div id="logins-pane" class="hidden">
+          <div class="updated" style="margin: 16px 0 0">
+            Admins can do everything. Viewers can only look (no resolving, granting, editing metrics or streaks).
+          </div>
+          <div class="card" id="accounts"></div>
+          <form class="card" id="account-form">
+            <h2>Add login</h2>
+            <div class="enter-row">
+              <div>
+                <label for="acct-user">Username</label>
+                <input id="acct-user" type="text" autocomplete="off" placeholder="3–32 letters, numbers, . _ -" />
+              </div>
+              <div>
+                <label for="acct-pass">Password</label>
+                <input id="acct-pass" type="password" autocomplete="new-password" placeholder="6+ characters" />
+              </div>
+            </div>
+            <label for="acct-role">Access</label>
+            <select id="acct-role">
+              <option value="viewer">Viewer (read-only)</option>
+              <option value="admin">Admin</option>
+            </select>
+            <p class="err" id="acct-err"></p>
+            <button class="primary" type="submit" id="acct-save">Add</button>
+          </form>
         </div>
       </div>
     </div>
@@ -548,10 +603,94 @@
         $("bugs-pane").classList.toggle("hidden", tab !== "bugs");
         $("skins-pane").classList.toggle("hidden", tab !== "skins");
         $("metrics-pane").classList.toggle("hidden", tab !== "metrics");
-        $("page-title").textContent =
-          tab === "skins" ? "Collectables" : tab === "metrics" ? "Metrics" : "Bug reports";
+        $("streaks-pane").classList.toggle("hidden", tab !== "streaks");
+        $("logins-pane").classList.toggle("hidden", tab !== "logins");
+        $("page-title").textContent = {
+          skins: "Collectables",
+          metrics: "Metrics",
+          streaks: "Streaks",
+          logins: "Logins",
+        }[tab] || "Bug reports";
         if (tab === "skins") loadSkins();
         if (tab === "metrics") loadMetrics();
+        if (tab === "streaks") loadStreaks();
+        if (tab === "logins") loadAccounts();
+      }
+
+      const ERRORS = {
+        forbidden: "Only admins can do that.",
+        last_admin: "There has to be at least one admin.",
+        cannot_remove_self: "You can’t remove the login you’re signed in with.",
+        bad_username: "Username: 3–32 lowercase letters, numbers, . _ -",
+        short_password: "Password needs 6+ characters.",
+        bad_role: "Pick admin or viewer.",
+        bad_count: "Enter a whole number from 0.",
+        no_such_user: "No one with that handle.",
+      };
+      function why(error) {
+        const m = (error && error.message) || "";
+        return ERRORS[m] || m || "Something went wrong.";
+      }
+
+      async function loadStreaks() {
+        const { user, pass } = creds();
+        const { data, error } = await sb.rpc("admin_search_streaks", {
+          p_user: user,
+          p_pass: pass,
+          p_q: $("streak-q").value.trim().replace(/^@/, ""),
+        });
+        const el = $("streaks");
+        if (error) {
+          el.innerHTML = `<p class="empty">${esc(why(error))}</p>`;
+          return;
+        }
+        const rows = data || [];
+        if (!rows.length) {
+          el.innerHTML = '<p class="empty">No one found.</p>';
+          return;
+        }
+        el.innerHTML = rows
+          .map((r) => {
+            const count = r.alive ? Number(r.streak_count) || 0 : 0;
+            const note = r.alive
+              ? "best " + (r.streak_best || 0)
+              : (r.streak_count ? "ended at " + r.streak_count + " · " : "") + "best " + (r.streak_best || 0);
+            return `<div class="line" data-handle="${esc(r.handle)}">
+              <div class="who"><b>${esc(r.display_name || r.handle)}</b><span>@${esc(r.handle)} · ${esc(note)}</span></div>
+              <div class="num${r.alive ? "" : " dead"}">${count}</div>
+              <span class="admin-only" style="display:inline-flex;gap:8px;align-items:center">
+                <input type="number" min="0" step="1" inputmode="numeric" value="${count}" aria-label="New streak" />
+                <button class="give small" type="button" data-set-streak>Set</button>
+              </span>
+            </div>`;
+          })
+          .join("");
+      }
+
+      async function loadAccounts() {
+        const { user, pass } = creds();
+        const el = $("accounts");
+        const { data, error } = await sb.rpc("admin_list_accounts", { p_user: user, p_pass: pass });
+        if (error) {
+          el.innerHTML = `<p class="empty">${esc(why(error))}</p>`;
+          return;
+        }
+        const me = user.toLowerCase();
+        el.innerHTML = (data || [])
+          .map((a) => {
+            const self = a.username === me;
+            return `<div class="line" data-account="${esc(a.username)}">
+              <div class="who"><b>${esc(a.username)}${self ? " (you)" : ""}</b><span>added ${esc(when(a.created_at))}</span></div>
+              <select aria-label="Access">
+                <option value="admin"${a.role === "admin" ? " selected" : ""}>Admin</option>
+                <option value="viewer"${a.role === "viewer" ? " selected" : ""}>Viewer</option>
+              </select>
+              <input type="password" placeholder="New password" autocomplete="new-password" aria-label="New password" />
+              <button class="give small" type="button" data-save-account>Save</button>
+              ${self ? "" : '<button class="remove" type="button" data-remove-account>Remove</button>'}
+            </div>`;
+          })
+          .join("");
       }
 
       async function load() {
@@ -569,19 +708,22 @@
           showLogin("Wrong username or password.");
           return;
         }
+        const { data: role } = await sb.rpc("admin_whoami", { p_user: user, p_pass: pass });
+        document.body.classList.toggle("viewer", role !== "admin");
+        if (role !== "admin" && activeTab === "logins") activeTab = "metrics";
         showApp();
         const rows = data || [];
         count.textContent = rows.length === 1 ? "1 open report" : rows.length + " open reports";
         if (!rows.length) {
           list.innerHTML = '<p class="empty">Nothing in the inbox.</p>';
         } else {
-          list.innerHTML = rows
-            .map((r) => {
-              const who = r.handle ? "@" + r.handle : r.display_name || "someone";
-              const expected = r.expected
-                ? `<div class="block"><div class="k">Expected</div><p>${esc(r.expected)}</p></div>`
-                : "";
-              return `<article class="card" data-id="${esc(r.id)}">
+        list.innerHTML = rows
+          .map((r) => {
+            const who = r.handle ? "@" + r.handle : r.display_name || "someone";
+            const expected = r.expected
+              ? `<div class="block"><div class="k">Expected</div><p>${esc(r.expected)}</p></div>`
+              : "";
+            return `<article class="card" data-id="${esc(r.id)}">
               <h2>${esc(r.title)}</h2>
               <div class="meta">${esc(who)} · ${esc(when(r.created_at))}</div>
               <div class="block"><div class="k">What happened</div><p>${esc(r.description)}</p></div>
@@ -592,8 +734,8 @@
                 <button class="resolve" type="button" data-resolve="${esc(r.id)}">Resolve</button>
               </div>
             </article>`;
-            })
-            .join("");
+          })
+          .join("");
         }
         setTab(activeTab);
       }
@@ -757,6 +899,7 @@
 
       $("out").addEventListener("click", () => {
         clearCreds();
+        document.body.classList.remove("viewer");
         $("user").value = "";
         $("pass").value = "";
         showLogin();
@@ -1221,6 +1364,116 @@
         }
         $("metric-value").value = "";
         await loadMetrics();
+      });
+
+      let streakTimer = 0;
+      $("streak-q").addEventListener("input", () => {
+        clearTimeout(streakTimer);
+        streakTimer = setTimeout(loadStreaks, 220);
+      });
+
+      $("streaks").addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-set-streak]");
+        if (!btn) return;
+        const line = btn.closest("[data-handle]");
+        const handle = line.getAttribute("data-handle");
+        const n = Number(line.querySelector("input").value);
+        if (!Number.isInteger(n) || n < 0) {
+          alert(ERRORS.bad_count);
+          return;
+        }
+        if (!confirm("Set @" + handle + "’s streak to " + n + "?")) return;
+        btn.disabled = true;
+        const { user, pass } = creds();
+        const { error } = await sb.rpc("admin_set_streak", {
+          p_user: user,
+          p_pass: pass,
+          p_handle: handle,
+          p_count: n,
+        });
+        btn.disabled = false;
+        if (error) {
+          alert(why(error));
+          return;
+        }
+        await loadStreaks();
+      });
+
+      $("accounts").addEventListener("click", async (e) => {
+        const save = e.target.closest("[data-save-account]");
+        const remove = e.target.closest("[data-remove-account]");
+        if (!save && !remove) return;
+        const line = e.target.closest("[data-account]");
+        const username = line.getAttribute("data-account");
+        const { user, pass } = creds();
+        if (remove) {
+          if (!confirm("Remove the login " + username + "? They’ll be signed out.")) return;
+          remove.disabled = true;
+          const { error } = await sb.rpc("admin_delete_account", {
+            p_user: user,
+            p_pass: pass,
+            p_username: username,
+          });
+          remove.disabled = false;
+          if (error) {
+            alert(why(error));
+            return;
+          }
+          await loadAccounts();
+          return;
+        }
+        const newPass = line.querySelector("input").value;
+        save.disabled = true;
+        const { error } = await sb.rpc("admin_upsert_account", {
+          p_user: user,
+          p_pass: pass,
+          p_username: username,
+          p_password: newPass,
+          p_role: line.querySelector("select").value,
+        });
+        save.disabled = false;
+        if (error) {
+          alert(why(error));
+          await loadAccounts();
+          return;
+        }
+        if (username === user.toLowerCase() && newPass) setCreds(user, newPass);
+        await loadAccounts();
+      });
+
+      $("account-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const err = $("acct-err");
+        err.textContent = "";
+        const username = $("acct-user").value.trim().toLowerCase();
+        const password = $("acct-pass").value;
+        if (!password) {
+          err.textContent = ERRORS.short_password;
+          return;
+        }
+        $("acct-save").disabled = true;
+        const { user, pass } = creds();
+        const { data: existing } = await sb.rpc("admin_list_accounts", { p_user: user, p_pass: pass });
+        if ((existing || []).some((a) => a.username === username)) {
+          $("acct-save").disabled = false;
+          err.textContent = "That username already exists. Change it in the list above.";
+          return;
+        }
+        const { error } = await sb.rpc("admin_upsert_account", {
+          p_user: user,
+          p_pass: pass,
+          p_username: username,
+          p_password: password,
+          p_role: $("acct-role").value,
+        });
+        $("acct-save").disabled = false;
+        if (error) {
+          err.textContent = why(error);
+          return;
+        }
+        $("acct-user").value = "";
+        $("acct-pass").value = "";
+        await loadAccounts();
       });
 
       load();
